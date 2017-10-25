@@ -1,6 +1,6 @@
 # Getting Started
 
-This repo provides a Python client for the [https://ipdata.co](ipdata.co) Free Geolocation API.
+This repo provides a Python client for the [ipdata.co](https://ipdata.co) Free Geolocation API.
 
 ## Installation
 
