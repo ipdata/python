@@ -18,6 +18,6 @@ setup(
   url = 'https://github.com/ipdata/python', # use the URL to the github repo
   download_url = 'https://github.com/ipdata/python/archive/1.8.tar.gz', # I'll explain this in a second
   keywords = ['geolocation', 'ip geolocation', 'ip locate'], # arbitrary keywords
-  long_description=read('README.rst'),
+  long_description=read('README'),
   classifiers = [],
 )
