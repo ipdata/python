@@ -24,3 +24,11 @@ To get a specific field, do
 country = ip.lookup('1.1.1.1')['country_name]
 u'country_name': u'Australia'
 ```
+
+### Using API keys
+
+```
+apikey = 'myapikey'
+ip = ipdata(apikey=apikey)
+res = ip.lookup('1.1.1.1')
+```
