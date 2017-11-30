@@ -13,22 +13,52 @@ pip install ipdata
 ## Examples
 
 ```
-ip = ipdata()
-res = ip.lookup('1.1.1.1')
-# {u'calling_code': u'61', u'city': u'Research', u'organisation': u'', u'latitude': -37.7, u'ip': u'1.1.1.1', u'region': u'Victoria', u'time_zone': u'Australia/Melbourne', u'continent_code': u'OC', u'currency': u'AUD', u'continent_name': u'Oceania', u'flag': u'https://ipdata.co/flags/au.png', u'longitude': 145.1833, u'country_code': u'AU', u'country_name': u'Australia', u'postal': u'3095', u'asn': u''}
+from ipdata import ipdata
+ip = ipdata.ipdata()
+data = ip.lookup('1.1.1.1')
+if data['status']==200:
+    for key in data['response']:
+        print('#', key, ':', data['response'][key])
+else:
+    print(data['response'])
+# ip : 1.1.1.1
+# city : Research
+# region : Victoria
+# country_name : Australia
+# country_code : AU
+# continent_name : Oceania
+# continent_code : OC
+# latitude : -37.7
+# longitude : 145.1833
+# asn : 
+# organisation : 
+# postal : 3095
+# currency : AUD
+# currency_symbol : $
+# calling_code : 61
+# flag : https://ipdata.co/flags/au.png
+# time_zone : Australia/Melbourne
 ```
 
 To get a specific field, do
 
 ```
-country = ip.lookup('1.1.1.1')['country_name]
-u'country_name': u'Australia'
+country = ip.lookup('1.1.1.1')['response']['country_name']
+# 'Australia'
 ```
 
 ### Using API keys
 
 ```
+from ipdata import ipdata
+
 apikey = 'myapikey'
-ip = ipdata(apikey=apikey)
-res = ip.lookup('1.1.1.1')
+ip = ipdata.ipdata(apikey=apikey)
+data = ip.lookup('1.1.1.1')
+
+if data['status']==200:
+    for key in data['response']:
+        print('#', key, ':', data['response'][key])
+else:
+    print(data['response'])
 ```
