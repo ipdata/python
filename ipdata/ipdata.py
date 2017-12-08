@@ -6,7 +6,7 @@ class ipdata:
     def __init__(self, apikey=None,language='en'):
         self.apikey = apikey
         self.language = language
-        self.headers = {'user-agent': 'ipdata-pypi/2.3'}
+        self.headers = {'user-agent': 'ipdata-pypi/2.4'}
     def lookup(self, ip):
         try:
             if self.apikey:
@@ -17,4 +17,3 @@ class ipdata:
             return {'status':r.status_code, 'response':r.text}
         except requests.exceptions.RequestException as e:  # This is the correct syntax
             print(e)
-            sys.exit(1)
