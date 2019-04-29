@@ -1,23 +1,29 @@
-from distutils.core import setup
-import os
+import pathlib
+from setuptools import setup
 
-def read(fname):
-    """Utility function to get README.rst into long_description.
+# The directory containing this file
+HERE = pathlib.Path(__file__).parent
 
-    ``long_description`` is what ends up on the PyPI front page.
-    """
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+# The text of the README file
+README = (HERE / "README.md").read_text()
 
+# This call to setup() does all the work
 setup(
-  name = 'ipdata',
-  packages = ['ipdata'], # this must be the same as the name above
-  version = '2.5',
-  description = 'Python Client for Ipdata.co - a Free Ip Geolocation API',
-  author = 'Jonathan Kosgei',
-  author_email = 'jonathan@ipdata.co',
-  url = 'https://github.com/ipdata/python', # use the URL to the github repo
-  download_url = 'https://github.com/ipdata/python/archive/2.5.tar.gz', # I'll explain this in a second
-  keywords = ['geolocation', 'ip geolocation', 'ip locate'], # arbitrary keywords
-  long_description=read('README'),
-  classifiers = [],
+    name="ipdata",
+    version="3.2",
+    description="Python Client for the ipdata IP Geolocation API",
+    long_description=README,
+    long_description_content_type="text/markdown",
+    url="https://github.com/ipdata/python",
+    author="Jonathan Kosgei",
+    author_email="jonatha@ipdata.co",
+    license="MIT",
+    classifiers=[
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.7",
+    ],
+    packages=["ipdata"],
+    include_package_data=True,
+    install_requires=["requests", "ipaddress"],
 )
