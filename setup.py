@@ -10,7 +10,7 @@ README = (HERE / "README.md").read_text()
 # This call to setup() does all the work
 setup(
     name="ipdata",
-    version="3.2",
+    version="3.2.0",
     description="Python Client for the ipdata IP Geolocation API",
     long_description=README,
     long_description_content_type="text/markdown",
