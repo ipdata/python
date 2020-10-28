@@ -4,7 +4,10 @@ from sys import stderr
 
 import click
 
-from ipdata import IPData
+if __name__ == '__main__':
+    from ipdata import IPData
+else:
+    from .ipdata import IPData
 
 
 @click.group(help='CLI for IPData API')
