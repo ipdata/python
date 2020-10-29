@@ -134,9 +134,17 @@ def ip(ip, fields, api_key):
         print(f'Error: IP address {e}', file=stderr)
 
 
+@click.command()
+@click.option('--api_key', required=False, default=None, help='IPData API Key')
+def info(api_key):
+    res = IPData(get_and_check_api_key(api_key)).lookup('8.8.8.8')
+    print(f'Number of requests made: {res["count"]}')
+
+
 cli.add_command(init)
 cli.add_command(myip)
 cli.add_command(ip)
+cli.add_command(info)
 
 
 if __name__ == '__main__':
