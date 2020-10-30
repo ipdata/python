@@ -1,6 +1,6 @@
 import json
 import os
-import socket
+from ipaddress import ip_address
 from pathlib import Path
 from sys import stderr, stdout
 
@@ -16,9 +16,33 @@ class WrongAPIKey(Exception):
     pass
 
 
-@click.group(help='CLI for IPData API')
-def cli():
-    pass
+class IPAddressType(click.ParamType):
+    name = 'IP_Address'
+
+    def convert(self, value, param, ctx):
+        try:
+            return ip_address(value)
+        except:
+            self.fail(f'{value} is not valid IPv4 or IPv6 address')
+
+    def __str__(self) -> str:
+        return 'IP Address'
+
+
+@click.group(help='CLI for IPData API', invoke_without_command=True)
+@click.option('--ip', required=False, type=IPAddressType(), default=None, help='IP Address to lookup')
+@click.option('--fields', required=False, type=str, default=None, help='Coma separated list of fields to extract')
+@click.option('--api-key', required=False, default=None, help='IPData API Key')
+@click.pass_context
+def cli(ctx, ip, fields, api_key):
+    ctx.ensure_object(dict)
+    ctx.obj['api-key'] = get_and_check_api_key(api_key)
+    ctx.obj['ip'] = ip
+    ctx.obj['fields'] = fields.split(',') if fields else None
+    if ctx.invoked_subcommand is None:
+        print_ip_info(api_key, ip=ip, fields=ctx.obj['fields'])
+    else:
+        pass
 
 
 def get_api_key_path():
@@ -37,11 +61,6 @@ def get_api_key():
         return None
 
 
-def get_my_ip():
-    hostname = socket.gethostname()
-    return socket.gethostbyname(hostname)
-
-
 def get_and_check_api_key(api_key: str = None) -> str:
     if api_key is None:
         api_key = get_api_key()
@@ -51,9 +70,10 @@ def get_and_check_api_key(api_key: str = None) -> str:
     return api_key
 
 
-@click.command()
-@click.argument('api_key', type=str)
-def init(api_key):
+@cli.command()
+@click.pass_context
+def init(ctx):
+    api_key = ctx.obj['api-key']
     key_path = get_api_key_path()
 
     ipdata = IPData(api_key)
@@ -95,15 +115,31 @@ def json_filter(json, fields):
     return res
 
 
-@click.command()
-@click.option('--api_key', required=False, default=None, help='IPData API Key')
-def me(api_key):
+@cli.command()
+@click.pass_context
+def me(ctx):
+    if 'ip' in ctx.obj and ctx.obj['ip']:
+        print(f'Warning: Ignore --ip {ctx.obj["ip"]} param', file=stderr)
+    print_ip_info(ctx.obj['api-key'], ip=None, fields=ctx.obj['fields'])
+
+
+def print_ip_info(api_key, ip=None, fields=None):
     try:
-        ip_data = IPData(get_and_check_api_key(api_key))
-        res = ip_data.lookup(ip_data.my_ip())
-        json.dump(res, stdout)
+        json.dump(get_ip_info(api_key, ip, fields), stdout)
     except ValueError as e:
         print(f'Error: IP address {e}', file=stderr)
+
+
+def get_ip_info(api_key, ip=None, fields=None):
+    ip_data = IPData(get_and_check_api_key(api_key))
+    if ip:
+        res = ip_data.lookup(ip)
+    else:
+        res = ip_data.lookup()
+    if fields and len(fields) > 0:
+        return json_filter(res, fields)
+    else:
+        return res
 
 
 def lookup_field(data, field):
@@ -118,33 +154,20 @@ def lookup_field(data, field):
     return None, None
 
 
-@click.command()
-@click.argument('ip', type=str)
-@click.argument('fields', type=str, nargs=-1)
-@click.option('--api_key', required=False, default=None, help='IPData API Key')
-def ip(ip, fields, api_key):
-    try:
-        res = IPData(get_and_check_api_key(api_key)).lookup(ip)
-        if len(fields) > 0:
-            json.dump(json_filter(res, fields), stdout)
-        else:
-            json.dump(res, stdout)
-    except ValueError as e:
-        print(f'Error: IP address {e}', file=stderr)
+# @cli.command()
+# @click.argument('ip', type=str)
+# @click.argument('fields', type=str, nargs=-1)
+# @click.option('--api_key', required=False, default=None, help='IPData API Key')
+# def ip(ip, fields, api_key):
+#     print_ip_info(api_key, ip, fields)
 
 
-@click.command()
-@click.option('--api-key', required=False, default=None, help='IPData API Key')
-def info(api_key):
-    res = IPData(get_and_check_api_key(api_key)).lookup('8.8.8.8')
+@cli.command()
+@click.pass_context
+def info(ctx):
+    res = IPData(get_and_check_api_key(ctx.obj['api-key'])).lookup('8.8.8.8')
     print(f'Number of requests made: {res["count"]}')
 
 
-cli.add_command(init)
-cli.add_command(me)
-cli.add_command(ip)
-cli.add_command(info)
-
-
 if __name__ == '__main__':
-    cli()
+    cli(obj={})
