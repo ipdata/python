@@ -1,10 +1,10 @@
+import json
 import os
 import socket
 from pathlib import Path
 from sys import stderr, stdout
 
 import click
-import yaml
 
 if __name__ == '__main__':
     from ipdata import IPData
@@ -100,7 +100,7 @@ def json_filter(json, fields):
 def me(api_key):
     try:
         res = IPData(get_and_check_api_key(api_key)).lookup(get_my_ip())
-        yaml.dump(res, stdout)
+        json.dump(res, stdout)
     except ValueError as e:
         print(f'Error: IP address {e}', file=stderr)
 
@@ -125,9 +125,9 @@ def ip(ip, fields, api_key):
     try:
         res = IPData(get_and_check_api_key(api_key)).lookup(ip)
         if len(fields) > 0:
-            yaml.dump(json_filter(res, fields), stdout)
+            json.dump(json_filter(res, fields), stdout)
         else:
-            yaml.dump(res, stdout)
+            json.dump(res, stdout)
     except ValueError as e:
         print(f'Error: IP address {e}', file=stderr)
 
