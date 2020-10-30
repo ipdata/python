@@ -99,7 +99,8 @@ def json_filter(json, fields):
 @click.option('--api_key', required=False, default=None, help='IPData API Key')
 def me(api_key):
     try:
-        res = IPData(get_and_check_api_key(api_key)).lookup(get_my_ip())
+        ip_data = IPData(get_and_check_api_key(api_key))
+        res = ip_data.lookup(ip_data.my_ip())
         json.dump(res, stdout)
     except ValueError as e:
         print(f'Error: IP address {e}', file=stderr)

@@ -47,6 +47,15 @@ class IPData:
         if ipaddress.ip_address(ip).is_private:
             raise ValueError(f"{ip} is a private IP Address")
 
+    def my_ip(self):
+        query = "ip"
+        query_params = {'api-key': self.api_key}
+
+        response = requests.get(f"{self.base_url}{query}", headers=self.headers, params=query_params)
+        status_code = response.status_code
+        if status_code == 200:
+            return response.text
+
     def lookup(self, ip=None, select_field=None, fields=None):
         if fields is None:
             fields = []
