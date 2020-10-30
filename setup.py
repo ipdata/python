@@ -25,7 +25,7 @@ setup(
     ],
     packages=["ipdata"],
     include_package_data=True,
-    install_requires=["requests", "ipaddress", "click"],
+    install_requires=["requests", "ipaddress", "click", "pyaml"],
     entry_points={
         'console_scripts': [
             'ipdata = ipdata.cli:cli',
