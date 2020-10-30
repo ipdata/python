@@ -135,7 +135,7 @@ def ip(ip, fields, api_key):
 
 
 @click.command()
-@click.option('--api_key', required=False, default=None, help='IPData API Key')
+@click.option('--api-key', required=False, default=None, help='IPData API Key')
 def info(api_key):
     res = IPData(get_and_check_api_key(api_key)).lookup('8.8.8.8')
     print(f'Number of requests made: {res["count"]}')
