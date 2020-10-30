@@ -97,7 +97,7 @@ def json_filter(json, fields):
 
 @click.command()
 @click.option('--api_key', required=False, default=None, help='IPData API Key')
-def myip(api_key):
+def me(api_key):
     try:
         res = IPData(get_and_check_api_key(api_key)).lookup(get_my_ip())
         yaml.dump(res, stdout)
@@ -140,7 +140,7 @@ def info(api_key):
 
 
 cli.add_command(init)
-cli.add_command(myip)
+cli.add_command(me)
 cli.add_command(ip)
 cli.add_command(info)
 
