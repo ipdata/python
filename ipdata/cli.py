@@ -59,13 +59,11 @@ def init(api_key):
     ipdata = IPData(api_key)
     res = ipdata.lookup('8.8.8.8')
     if res['status'] == 200:
-        try:
-            existing_api_key = get_and_check_api_key()
+        existing_api_key = get_api_key()
+        if existing_api_key:
             print(f'Warning: You already have an IPData API Key "{existing_api_key}" listed in {key_path}. '
                   f'It will be overwritten with {api_key}',
                   file=stderr)
-        except WrongAPIKey:
-            pass
 
         with open(key_path, 'w') as f:
             f.write(api_key)
