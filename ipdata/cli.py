@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from ipaddress import ip_address
 from pathlib import Path
 from sys import stderr, stdout
@@ -123,6 +124,15 @@ def me(ctx):
     print_ip_info(ctx.obj['api-key'], ip=None, fields=ctx.obj['fields'])
 
 
+@click.command()
+@click.argument('ip', required=True, type=IPAddressType())
+@click.option('--fields', required=False, type=str, default=None, help='Coma separated list of fields to extract')
+@click.option('--api-key', required=False, default=None, help='IPData API Key')
+def ip(ip, fields, api_key):
+    print_ip_info(get_and_check_api_key(api_key),
+                  ip=ip, fields=fields.split(','))
+
+
 def print_ip_info(api_key, ip=None, fields=None):
     try:
         json.dump(get_ip_info(api_key, ip, fields), stdout)
@@ -169,5 +179,16 @@ def info(ctx):
     print(f'Number of requests made: {res["count"]}')
 
 
+def is_ip_address(value):
+    try:
+        ip_address(value)
+        return True
+    except ValueError:
+        return False
+
+
 if __name__ == '__main__':
-    cli(obj={})
+    if len(sys.argv) >= 2 and is_ip_address(sys.argv[1]):
+        ip()
+    else:
+        cli(obj={})
