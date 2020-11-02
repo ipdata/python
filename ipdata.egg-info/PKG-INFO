@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ipdata
-Version: 3.3.0
+Version: 3.3.1
 Summary: Python Client for the ipdata IP Geolocation API
 Home-page: https://github.com/ipdata/python
 Author: Jonathan Kosgei

@@ -38,7 +38,7 @@ def cli(ctx, api_key):
     ctx.ensure_object(dict)
     ctx.obj['api-key'] = get_and_check_api_key(api_key)
     if ctx.invoked_subcommand is None:
-        print_ip_info(api_key, ip=ip)
+        print_ip_info(api_key)
     else:
         pass
 
@@ -171,7 +171,7 @@ def batch(ctx, ip_list, output, output_format, fields):
 @click.option('--api-key', required=False, default=None, help='IPData API Key')
 def ip(ip, fields, api_key):
     print_ip_info(get_and_check_api_key(api_key),
-                  ip=ip, fields=fields.split(','))
+                  ip=ip, fields=fields.split(',') if fields else None)
 
 
 def print_ip_info(api_key, ip=None, fields=None):
@@ -228,8 +228,12 @@ def is_ip_address(value):
         return False
 
 
-if __name__ == '__main__':
+def todo():
     if len(sys.argv) >= 2 and is_ip_address(sys.argv[1]):
         ip()
     else:
         cli(obj={})
+
+
+if __name__ == '__main__':
+    todo()
