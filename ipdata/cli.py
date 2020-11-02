@@ -1,3 +1,4 @@
+import csv
 import json
 import os
 import sys
@@ -31,17 +32,13 @@ class IPAddressType(click.ParamType):
 
 
 @click.group(help='CLI for IPData API', invoke_without_command=True)
-@click.option('--ip', required=False, type=IPAddressType(), default=None, help='IP Address to lookup')
-@click.option('--fields', required=False, type=str, default=None, help='Coma separated list of fields to extract')
 @click.option('--api-key', required=False, default=None, help='IPData API Key')
 @click.pass_context
-def cli(ctx, ip, fields, api_key):
+def cli(ctx, api_key):
     ctx.ensure_object(dict)
     ctx.obj['api-key'] = get_and_check_api_key(api_key)
-    ctx.obj['ip'] = ip
-    ctx.obj['fields'] = fields.split(',') if fields else None
     if ctx.invoked_subcommand is None:
-        print_ip_info(api_key, ip=ip, fields=ctx.obj['fields'])
+        print_ip_info(api_key, ip=ip)
     else:
         pass
 
@@ -117,11 +114,55 @@ def json_filter(json, fields):
 
 
 @cli.command()
+@click.option('--fields', required=False, type=str, default=None, help='Coma separated list of fields to extract')
 @click.pass_context
-def me(ctx):
-    if 'ip' in ctx.obj and ctx.obj['ip']:
-        print(f'Warning: Ignore --ip {ctx.obj["ip"]} param', file=stderr)
-    print_ip_info(ctx.obj['api-key'], ip=None, fields=ctx.obj['fields'])
+def me(ctx, fields):
+    print_ip_info(ctx.obj['api-key'], ip=None, fields=fields.split(',') if fields else None)
+
+
+@cli.command()
+@click.argument('ip-list', required=True, type=click.File(mode='r', encoding='utf-8'))
+@click.option('--output', required=False, default=stdout, type=click.File(mode='w', encoding='utf-8'),
+              help='Output to file or stdout')
+@click.option('--output-format', required=False, type=click.Choice(('JSON', 'CSV'), case_sensitive=False), default='JSON',
+              help='Format of output')
+@click.option('--fields', required=False, type=str, default=None, help='Coma separated list of fields to extract')
+@click.pass_context
+def batch(ctx, ip_list, output, output_format, fields):
+    extract_fields = fields.split(',') if fields else None
+
+    if output_format == 'CSV' and extract_fields is None:
+        print(f'Output in CSV format is not supported without specification of exactly fields to extract '
+              f'because of plain nature of CSV format. Please use JSON format instead.', file=stderr)
+        return
+
+    result_context = {}
+    if output_format == 'CSV':
+        print(f'# {fields}', file=output)  # print comment with columns
+        result_context['writer'] = csv.writer(output)
+
+        def print_result(res):
+            result_context['writer'].writerow([res[k] for k in extract_fields])
+
+        def finish():
+            pass
+
+    elif output_format == 'JSON':
+        result_context['results'] = []
+
+        def print_result(res):
+            result_context['results'].append(res)
+
+        def finish():
+            json.dump(result_context, fp=output)
+
+    else:
+        print(f'Unsupported format: {output_format}', file=stderr)
+        return
+
+    for ip in ip_list:
+        print_result(get_ip_info(ctx.obj['api-key'], ip=ip.strip(), fields=extract_fields))
+    finish()
 
 
 @click.command()
