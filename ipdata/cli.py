@@ -69,9 +69,8 @@ def get_and_check_api_key(api_key: str = None) -> str:
 
 
 @cli.command()
-@click.pass_context
-def init(ctx):
-    api_key = ctx.obj['api-key']
+@click.argument('api-key', required=True, type=str)
+def init(api_key):
     key_path = get_api_key_path()
 
     ipdata = IPData(api_key)
