@@ -21,6 +21,7 @@ dist/ipdata-2.3.tar.gz
 dist/ipdata-2.4.tar.gz
 dist/ipdata-2.5.tar.gz
 ipdata/__init__.py
+ipdata/cli.py
 ipdata/ipdata.py
 ipdata/test_ipdata.py
 ipdata.egg-info/PKG-INFO
