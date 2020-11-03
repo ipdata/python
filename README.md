@@ -14,7 +14,7 @@ pip3 install ipdata
 
 ## Usage
 
-1. Looking Up the Calling IP Address
+### Looking Up the Calling IP Address
 
 ```
 from ipdata import ipdata
@@ -25,7 +25,7 @@ response = ipdata.lookup()
 pprint(response)
 ```
 
-2. Looking Up any IP Address
+### Looking Up any IP Address
 
 ```
 from ipdata import ipdata
@@ -80,7 +80,7 @@ Response
                'offset': '-0500'}}
 ```
 
-3. Getting only one field
+### Getting only one field
 
 ```
 from ipdata import ipdata
@@ -97,7 +97,7 @@ Response
 {'organisation': 'Google LLC', 'status': 200}
 ```
 
-4. Getting a number of specific fields
+### Getting a number of specific fields
 
 ```
 from ipdata import ipdata
@@ -117,7 +117,7 @@ Response
  'status': 200}
 ```
 
-5. Bulk Lookups
+### Bulk Lookups
 
 ```
 from ipdata import ipdata
@@ -224,7 +224,7 @@ To run all tests
 python3 test_ipdata.py
 ```
 
-## CLI
+## ipdata CLI
 
 Usage: `ipdata [OPTIONS] COMMAND [ARGS]...`
 
@@ -237,7 +237,7 @@ Commands:
   `init`
   `me`
 
-### CLI Examples
+### ipdata CLI Examples
 
 #### Initialize with API Key
 ```
@@ -246,7 +246,7 @@ ipdata init <API Key>
 You may also pass `--api-key <API Key>` extra param to any command to
 specify API Key.
 
-#### Lookup own IP address
+#### Lookup your own IP address
 ```
 ipdata
 ```
@@ -254,11 +254,11 @@ or
 ```
 ipdata me
 ```
-#### Lookup an IP address
+#### Look up an IP address
 ```
 ipdata <IP Address>
 ```
-#### Lookup an I address and filter result by specifying coma separated list of fields 
+#### Look up an I address and filter result by specifying coma separated list of fields 
 ```
 ipdata <IP Address> --fields ip,country_code
 ```
