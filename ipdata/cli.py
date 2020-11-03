@@ -160,7 +160,9 @@ def batch(ctx, ip_list, output, output_format, fields):
         return
 
     for ip in ip_list:
-        print_result(get_ip_info(ctx.obj['api-key'], ip=ip.strip(), fields=extract_fields))
+        ip = ip.strip()
+        if len(ip) > 0:
+            print_result(get_ip_info(ctx.obj['api-key'], ip=ip.strip(), fields=extract_fields))
     finish()
 
 
