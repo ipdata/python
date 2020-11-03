@@ -223,3 +223,51 @@ To run all tests
 ```
 python3 test_ipdata.py
 ```
+
+## CLI
+
+Usage: `ipdata [OPTIONS] COMMAND [ARGS]...`
+
+Options:
+  `--api-key` TEXT  IPData API Key
+
+Commands:
+  `batch`
+  `info`
+  `init`
+  `me`
+
+### CLI Examples
+
+#### Initialize with API Key
+```
+ipdata init <API Key>
+```
+You may also pass `--api-key <API Key>` extra param to any command to
+specify API Key.
+
+#### Lookup own IP address
+```
+ipdata
+```
+or
+```
+ipdata me
+```
+#### Lookup an IP address
+```
+ipdata <IP Address>
+```
+#### Lookup an I address and filter result by specifying coma separated list of fields 
+```
+ipdata <IP Address> --fields ip,country_code
+```
+#### Batch lookup
+```
+ipdata <file with IP addresses> --output <file to output>
+```
+#### Batch lookup with output to CSV file
+```
+ipdata <file with IP addresses> --output <file to output> --output-format CSV --fields ip,country_code
+```
+`--fields` option is required in case of CSV output.
