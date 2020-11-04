@@ -22,7 +22,7 @@ Description: # Getting Started
         
         ## Usage
         
-        1. Looking Up the Calling IP Address
+        ### Looking Up the Calling IP Address
         
         ```
         from ipdata import ipdata
@@ -33,7 +33,7 @@ Description: # Getting Started
         pprint(response)
         ```
         
-        2. Looking Up any IP Address
+        ### Looking Up any IP Address
         
         ```
         from ipdata import ipdata
@@ -61,7 +61,7 @@ Description: # Getting Started
                       'native': '$',
                       'plural': 'US dollars',
                       'symbol': '$'},
-         'emoji_flag': '🇺🇸',
+         'emoji_flag': 'рџ‡єрџ‡ё',
          'emoji_unicode': 'U+1F1FA U+1F1F8',
          'flag': 'https://ipdata.co/flags/us.png',
          'ip': '69.78.70.144',
@@ -88,7 +88,7 @@ Description: # Getting Started
                        'offset': '-0500'}}
         ```
         
-        3. Getting only one field
+        ### Getting only one field
         
         ```
         from ipdata import ipdata
@@ -105,7 +105,7 @@ Description: # Getting Started
         {'organisation': 'Google LLC', 'status': 200}
         ```
         
-        4. Getting a number of specific fields
+        ### Getting a number of specific fields
         
         ```
         from ipdata import ipdata
@@ -125,7 +125,7 @@ Description: # Getting Started
          'status': 200}
         ```
         
-        5. Bulk Lookups
+        ### Bulk Lookups
         
         ```
         from ipdata import ipdata
@@ -152,7 +152,7 @@ Description: # Getting Started
                                     'native': '$',
                                     'plural': 'US dollars',
                                     'symbol': '$'},
-                       'emoji_flag': '🇺🇸',
+                       'emoji_flag': 'рџ‡єрџ‡ё',
                        'emoji_unicode': 'U+1F1FA U+1F1F8',
                        'flag': 'https://ipdata.co/flags/us.png',
                        'ip': '8.8.8.8',
@@ -189,7 +189,7 @@ Description: # Getting Started
                                     'native': '$',
                                     'plural': 'Australian dollars',
                                     'symbol': 'AU$'},
-                       'emoji_flag': '🇦🇺',
+                       'emoji_flag': 'рџ‡¦рџ‡є',
                        'emoji_unicode': 'U+1F1E6 U+1F1FA',
                        'flag': 'https://ipdata.co/flags/au.png',
                        'ip': '1.1.1.1',
@@ -231,6 +231,55 @@ Description: # Getting Started
         ```
         python3 test_ipdata.py
         ```
+        
+        ## ipdata CLI
+        
+        Usage: `ipdata [OPTIONS] COMMAND [ARGS]...`
+        
+        Options:
+          `--api-key` TEXT  IPData API Key
+        
+        Commands:
+          `batch`
+          `info`
+          `init`
+          `me`
+        
+        ### ipdata CLI Examples
+        
+        #### Initialize with API Key
+        ```
+        ipdata init <API Key>
+        ```
+        You may also pass `--api-key <API Key>` extra param to any command to
+        specify API Key.
+        
+        #### Lookup your own IP address
+        ```
+        ipdata
+        ```
+        or
+        ```
+        ipdata me
+        ```
+        #### Look up an IP address
+        ```
+        ipdata <IP Address>
+        ```
+        #### Look up an I address and filter result by specifying coma separated list of fields 
+        ```
+        ipdata <IP Address> --fields ip,country_code
+        ```
+        #### Batch lookup
+        ```
+        ipdata <file with IP addresses> --output <file to output>
+        ```
+        #### Batch lookup with output to CSV file
+        ```
+        ipdata <file with IP addresses> --output <file to output> --output-format CSV --fields ip,country_code
+        ```
+        `--fields` option is required in case of CSV output.
+        
 Platform: UNKNOWN
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
