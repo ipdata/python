@@ -1,2 +1,8 @@
 publish.sh
 .idea/
+v/
+build/
+dist/
+/*.egg-info/
+/*.egg
+*.pyc
