@@ -229,7 +229,7 @@ python3 test_ipdata.py
 Usage: `ipdata [OPTIONS] COMMAND [ARGS]...`
 
 Options:
-  `--api-key` TEXT  IPData API Key
+  `--api-key` TEXT IPData API Key
 
 Commands:
   `batch`
