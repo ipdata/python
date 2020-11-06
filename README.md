@@ -1,6 +1,6 @@
 # Getting Started
 
-This is a Python client for the [ipdata.co](https://ipdata.co) IP Geolocation API. ipdata offers a fast, highly-available API to enrich IP Addresses with Location, Company, Threat Intelligence and numerous other data attributes.
+This is a Python client and command line interface (CLI) for the [ipdata.co](https://ipdata.co) IP Geolocation API. ipdata offers a fast, highly-available API to enrich IP Addresses with Location, Company, Threat Intelligence and numerous other data attributes.
 
 Note you need an API Key to access the API. To get a key on the 1500 requests a day free tier, sign up at https://ipdata.co/registration.html. If you need higher volume, sign up for your preferred plan at https://ipdata.co/pricing.html.
 
