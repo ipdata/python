@@ -18,7 +18,7 @@ pip install ipdata
 
 ## Library Usage
 
-### Looking Up the Calling IP Address
+### Looking up the calling IP Address
 
 ```
 from ipdata import ipdata
@@ -29,7 +29,7 @@ response = ipdata.lookup()
 pprint(response)
 ```
 
-### Looking Up any IP Address
+### Looking up any IP Address
 
 ```
 from ipdata import ipdata
@@ -253,7 +253,7 @@ ipdata me
 ipdata 8.8.8.8
 ```
 
-#### Filter result by specifying coma separated list of fields 
+#### Filter results by specifying comma separated list of fields 
 
 ```
 ipdata 8.8.8.8 --fields ip,country_code
