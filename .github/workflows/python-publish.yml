@@ -1,4 +1,4 @@
-name: Publish ipdata to PyPI
+name: Test and Publish ipdata to PyPI
 
 on: push
 
