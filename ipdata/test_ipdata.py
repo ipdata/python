@@ -1,4 +1,4 @@
-from ipdata import *
+from .ipdata import *
 import unittest
 
 class TestAPIMethods(unittest.TestCase):

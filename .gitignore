@@ -6,3 +6,4 @@ dist/
 /*.egg-info/
 /*.egg
 *.pyc
+ipdata/__pycache__
