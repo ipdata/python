@@ -7,3 +7,4 @@ dist/
 /*.egg
 *.pyc
 ipdata/__pycache__
+.env
