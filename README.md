@@ -2,17 +2,17 @@
 
 This is a Python client and command line interface (CLI) for the [ipdata.co](https://ipdata.co) IP Geolocation API. ipdata offers a fast, highly-available API to enrich IP Addresses with Location, Company, Threat Intelligence and numerous other data attributes.
 
-Note you need an API Key to access the API. To get a key on the 1500 requests a day free tier, sign up at https://ipdata.co/registration.html. If you need higher volume, sign up for your preferred plan at https://ipdata.co/pricing.html.
+Note you need an API Key to access the API. To get a key on the 1500 requests a day free tier, [Sign up here](https://ipdata.co/sign-up.html) . If you need higher volume then [Sign up for a paid plan](https://ipdata.co/pricing.html).
 
-Visit our [Documentation](https://docs.ipdata.co/) for more information.
+Visit our [Documentation](https://docs.ipdata.co/) for more examples and tutorials.
 
 ## Installation
 
 ```
-pip3 install ipdata
+pip install ipdata
 ```
 
-## Usage
+## Library Usage
 
 ### Looking Up the Calling IP Address
 
@@ -36,8 +36,7 @@ response = ipdata.lookup('69.78.70.144')
 pprint(response)
 ```
 
-Response
-
+<details><summary>Sample Response</summary>
 ```
 {'asn': 'AS6167',
  'calling_code': '1',
@@ -79,6 +78,8 @@ Response
                'name': 'America/Chicago',
                'offset': '-0500'}}
 ```
+</details>
+
 
 ### Getting only one field
 
@@ -128,7 +129,7 @@ response = ipdata.bulk_lookup(['8.8.8.8','1.1.1.1'])
 pprint(response)
 ```
 
-Response
+<details><summary>Sample Response</summary>
 
 ```
 {'responses': [{'asn': 'AS15169',
@@ -207,6 +208,70 @@ Response
                              'offset': '+1000'}}],
  'status': 200}
 ```
+</details>
+
+## Using the ipdata CLI
+
+Usage: `ipdata [OPTIONS] COMMAND [ARGS]...`
+
+Options:
+  `--api-key` TEXT IPData API Key
+
+Commands:
+  `batch`
+  `info`
+  `init`
+  `me`
+
+#### Initialize the cli with your API Key
+
+```
+ipdata init <API Key>
+```
+
+You may also pass the `--api-key <API Key>` parameter to any command to specify a different API Key.
+
+#### Lookup your own IP address
+
+```
+ipdata
+```
+
+or
+```
+ipdata me
+```
+
+#### Look up an arbitrary IP address
+
+```
+ipdata 8.8.8.8
+```
+
+#### Filter result by specifying coma separated list of fields 
+
+```
+ipdata 8.8.8.8 --fields ip,country_code
+```
+
+You can also use `jq` to filter the responses 
+
+```
+ipdata me | jq .country_name
+```
+
+#### Batch lookup
+
+```
+ipdata my_ip_backlog.csv --output geolocation_results.json
+```
+
+#### Batch lookup with output to CSV file
+
+```
+ipdata my_ip_backlog.csv --output <file to output> --output-format CSV --fields ip,country_code
+```
+`--fields` option is required in case of CSV output.
 
 ## Available Fields
 
@@ -221,53 +286,5 @@ A list of possible errors is available at [Status Codes](https://docs.ipdata.co/
 To run all tests
 
 ```
-python3 test_ipdata.py
+python -m unittest
 ```
-
-## ipdata CLI
-
-Usage: `ipdata [OPTIONS] COMMAND [ARGS]...`
-
-Options:
-  `--api-key` TEXT IPData API Key
-
-Commands:
-  `batch`
-  `info`
-  `init`
-  `me`
-
-### ipdata CLI Examples
-
-#### Initialize with API Key
-```
-ipdata init <API Key>
-```
-You may also pass `--api-key <API Key>` extra param to any command to
-specify API Key.
-
-#### Lookup your own IP address
-```
-ipdata
-```
-or
-```
-ipdata me
-```
-#### Look up an IP address
-```
-ipdata <IP Address>
-```
-#### Look up an I address and filter result by specifying coma separated list of fields 
-```
-ipdata <IP Address> --fields ip,country_code
-```
-#### Batch lookup
-```
-ipdata <file with IP addresses> --output <file to output>
-```
-#### Batch lookup with output to CSV file
-```
-ipdata <file with IP addresses> --output <file to output> --output-format CSV --fields ip,country_code
-```
-`--fields` option is required in case of CSV output.

@@ -63,8 +63,7 @@ def get_and_check_api_key(api_key: str = None) -> str:
     if api_key is None:
         api_key = get_api_key()
     if api_key is None:
-        print(f'Please specify IPData API Key', file=stderr)
-        raise WrongAPIKey
+        print(f'Please provide a valid API Key', file=stderr)
     return api_key
 
 
@@ -76,17 +75,12 @@ def init(api_key):
     ipdata = IPData(api_key)
     res = ipdata.lookup('8.8.8.8')
     if res['status'] == 200:
-        existing_api_key = get_api_key()
-        if existing_api_key:
-            print(f'Warning: You already have an IPData API Key "{existing_api_key}" listed in {key_path}. '
-                  f'It will be overwritten with {api_key}',
-                  file=stderr)
 
         with open(key_path, 'w') as f:
             f.write(api_key)
-        print(f'New API Key is saved to {key_path}')
+        print(f'Successfully initialized.')
     else:
-        print(f'Failed to check the API Key (Error: {res["status"]}): {res["message"]}',
+        print(f'Setup failed. (Error: {res["status"]}): {res["message"]}',
               file=stderr)
 
 
