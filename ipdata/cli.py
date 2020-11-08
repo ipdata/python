@@ -4,7 +4,7 @@ import os
 import sys
 from ipaddress import ip_address
 from pathlib import Path
-from sys import stderr, stdout
+from sys import stderr, stdout, exit
 
 import click
 
@@ -31,12 +31,16 @@ class IPAddressType(click.ParamType):
         return 'IP Address'
 
 
-@click.group(help='CLI for IPData API', invoke_without_command=True)
-@click.option('--api-key', required=False, default=None, help='IPData API Key')
+@click.group(help='CLI for ipdata API', invoke_without_command=True)
+@click.option('--api-key', required=False, default=None, help='ipdata API Key')
 @click.pass_context
 def cli(ctx, api_key):
     ctx.ensure_object(dict)
-    ctx.obj['api-key'] = get_and_check_api_key(api_key)
+    key = ctx.obj['api-key'] = get_and_check_api_key(api_key)
+    if not ctx.invoked_subcommand == "init":
+        if key is None:
+            print(f'Please initialize the cli by running "ipdata init <api key>" then try again', file=stderr)
+            sys.exit(1)
     if ctx.invoked_subcommand is None:
         print_ip_info(api_key)
     else:
@@ -62,8 +66,6 @@ def get_api_key():
 def get_and_check_api_key(api_key: str = None) -> str:
     if api_key is None:
         api_key = get_api_key()
-    if api_key is None:
-        print(f'Please provide a valid API Key', file=stderr)
     return api_key
 
 
@@ -123,6 +125,7 @@ def me(ctx, fields):
 @click.pass_context
 def batch(ctx, ip_list, output, output_format, fields):
     extract_fields = fields.split(',') if fields else None
+    output_format = output_format.upper()
 
     if output_format == 'CSV' and extract_fields is None:
         print(f'Output in CSV format is not supported without specification of exactly fields to extract '
@@ -177,7 +180,11 @@ def print_ip_info(api_key, ip=None, fields=None):
 
 
 def get_ip_info(api_key, ip=None, fields=None):
-    ip_data = IPData(get_and_check_api_key(api_key))
+    api_key = get_and_check_api_key(api_key)
+    if api_key is None:
+        print(f'Please initialize the cli by running "ipdata init <api key>" then try again or pass an API key with the --api-key option', file=stderr)
+        sys.exit(1)
+    ip_data = IPData(api_key)
     if ip:
         res = ip_data.lookup(ip)
     else:

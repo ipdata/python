@@ -16,7 +16,7 @@ class IPData:
     base_url = 'https://api.ipdata.co/'
     bulk_url = 'https://api.ipdata.co/bulk'
     valid_fields = {'ip', 'is_eu', 'city', 'region', 'region_code', 'country_name', 'country_code', 'continent_name',
-                    'continent_code', 'latitude', 'longitude', 'asn', 'organisation', 'postal', 'calling_code', 'flag',
+                    'continent_code', 'latitude', 'longitude', 'asn', 'postal', 'calling_code', 'flag',
                     'emoji_flag', 'emoji_unicode', 'carrier', 'languages', 'currency', 'time_zone', 'threat', 'count',
                     'status'}
 
