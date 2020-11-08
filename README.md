@@ -12,13 +12,27 @@ Visit our [Documentation](https://docs.ipdata.co/) for more examples and tutoria
 
 ## Installation
 
+Install the latest version of the cli with `pip`.
+
 ```
 pip install ipdata
 ```
 
+or `easy_install`
+
+```
+easy_install ipdata
+```
+
 ## Library Usage
 
+You need a valid API key from ipdata to use the library. You can get a free key by [Signing up here](https://ipdata.co/sign-up.html).
+
+Replace `test` with your API Key in the following examples.
+
 ### Looking up the calling IP Address
+
+You can look up the calling IP address, that is, the IP address of the computer you are running this on by not passing an IP address to the `lookup` method.
 
 ```
 from ipdata import ipdata
@@ -30,6 +44,8 @@ pprint(response)
 ```
 
 ### Looking up any IP Address
+
+You can look up any valid IPv4 or IPv6 address by passing it to the `lookup` method.
 
 ```
 from ipdata import ipdata
@@ -88,6 +104,8 @@ pprint(response)
 
 ### Getting only one field
 
+If you only need a single data attribute about an IP address you can extract it by passing a `select_field` parameter to the `lookup` method.
+
 ```
 from ipdata import ipdata
 from pprint import pprint
@@ -104,6 +122,8 @@ Response
 ```
 
 ### Getting a number of specific fields
+
+If instead you need to get multiple specific fields you can pass a list of valid field names in a `fields` parameter.
 
 ```
 from ipdata import ipdata
@@ -124,6 +144,10 @@ Response
 ```
 
 ### Bulk Lookups
+
+The API provides a `/bulk` endpoint that allows you to look up upto 100 IP addresses at a time. This is convenient for quickly clearing your backlog.
+
+NOTE: Alternatively it is much simpler to process bulk lookups using the `ipdata` cli's `batch` command. All you need is a csv file with a list of IP addresses and you can get your results as either a JSON file or a CSV file! See the [CLI Bulk Lookup Documentation](https://docs.ipdata.co/command-line-interface/bulk-lookups-recommended) for details.
 
 ```
 from ipdata import ipdata
@@ -217,66 +241,105 @@ pprint(response)
 
 ## Using the ipdata CLI
 
-Usage: `ipdata [OPTIONS] COMMAND [ARGS]...`
+### Available commands
+
+```
+ipdata --help
+Usage: ipdata [OPTIONS] COMMAND [ARGS]...
+
+  CLI for ipdata API
 
 Options:
-  `--api-key` TEXT IPData API Key
+  --api-key TEXT  ipdata API Key
+  --help          Show this message and exit.
 
 Commands:
-  `batch`
-  `info`
-  `init`
-  `me`
+  batch
+  info
+  init
+  me
+```
 
-#### Initialize the cli with your API Key
+### Initialize the cli with your API Key
+
+You need a valid API key from ipdata to use the cli. You can get a free key by [Signing up here](https://ipdata.co/sign-up.html).
 
 ```
 ipdata init <API Key>
 ```
 
-You may also pass the `--api-key <API Key>` parameter to any command to specify a different API Key.
+You can also pass the `--api-key <API Key>` parameter to any command to specify a different API Key.
 
-#### Look up your own IP address
+### Look up your own IP address
+
+Running the `ipdata` command without any parameters will look up the IP address of the computer you are running the command on. Alternatively you can explicitly look up your own IP address by running `ipdata me` . You can filter the JSON response with `jq` to get any specific fields you might be interested in.
+
 
 ```
 ipdata
 ```
 
 or
+
 ```
 ipdata me
 ```
 
-#### Look up an arbitrary IP address
-
-```
-ipdata 8.8.8.8
-```
-
-#### Filter results by specifying comma separated list of fields 
-
-```
-ipdata 8.8.8.8 --fields ip,country_code
-```
-
-You can also use `jq` to filter the responses 
+Using `jq` to filter the responses 
 
 ```
 ipdata me | jq .country_name
 ```
 
-#### Batch lookup
+### Look up an arbitrary IP address
+
+You can pass any valid IPv4 or IPv6 address to the `ipdata` command to look it up. In case an invalid value is passed you will get the error `Error: No such command "1..@1....1..1"`.
 
 ```
-ipdata my_ip_backlog.csv --output geolocation_results.json
+ipdata 8.8.8.8
 ```
 
-#### Batch lookup with output to CSV file
+### Filter results by specifying comma separated list of fields 
+
+In case you don't want to use `jq` to filter responses to get specific fields you can instead pass a fields argument to the `ipdata` command along with a comma separated list of valid fields. Invalid fields are ignored. It is important to not include any whitespace in the list.
+
+To access fields within nested objects eg. in the case of the `asn`, `languages`, `currency`, `time_zone` and `threat` objects, you can get a nested field by using dot notation with the name of the object and the name of the field. For example to get the time_zone name you would use `time_zone.name`, to get the time_zone abbreviation you would use `time_zone.abbr`
 
 ```
-ipdata my_ip_backlog.csv --output <file to output> --output-format CSV --fields ip,country_code
+ipdata 8.8.8.8 --fields ip,country_code
 ```
-`--fields` option is required in case of CSV output.
+
+### Batch lookup
+
+Perhaps the most useful command provided by the CLI is the ability to process a csv file with a list of IP addresses and write the results to file as either CSV or JSON! It could be a list of tens of thousands to millions of IP addresses and it will all be processed and the results filtered to your liking!
+When you use the JSON output format, the results are written to the output file you provide with one result per line. Each line being a valid and full JSON response object.
+If you only need a few fields eg. only the country name you can specify a field argument with the names of the fields you want, if you combine this with the CSV output format you will get very clean results with only the data you need!
+
+### To get full JSON responses for further processing
+
+```
+ipdata batch my_ip_backlog.csv --output geolocation_results.json
+```
+
+### Batch lookup with output to CSV file
+
+```
+ipdata batch my_ip_backlog.csv --output results.csv --output-format CSV --fields ip,country_code
+```
+
+The `--fields` option is required in case of CSV output.
+
+#### Example Results
+
+```
+# ip,country_code
+107.175.75.83,US
+35.155.95.229,US
+13.0.0.164,US
+209.248.120.14,US
+142.0.202.238,US
+...
+```
 
 ## Available Fields
 
