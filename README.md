@@ -1,10 +1,14 @@
-# Getting Started
+[![PyPI version](https://badge.fury.io/py/ipdata.svg)](https://badge.fury.io/py/ipdata) ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/ipdata/python/Test%20and%20Publish%20ipdata%20to%20PyPI)
+
+# Official Python client library and CLI for the ipdata API
 
 This is a Python client and command line interface (CLI) for the [ipdata.co](https://ipdata.co) IP Geolocation API. ipdata offers a fast, highly-available API to enrich IP Addresses with Location, Company, Threat Intelligence and numerous other data attributes.
 
-Note you need an API Key to access the API. To get a key on the 1500 requests a day free tier, [Sign up here](https://ipdata.co/sign-up.html) . If you need higher volume then [Sign up for a paid plan](https://ipdata.co/pricing.html).
+Note that you need an API Key to use this package. You can get a free one with a 1,500 daily request limit by [Signing up here](https://ipdata.co/sign-up.html).
 
 Visit our [Documentation](https://docs.ipdata.co/) for more examples and tutorials.
+
+[![asciicast](https://asciinema.org/a/371292.svg)](https://asciinema.org/a/371292)
 
 ## Installation
 
