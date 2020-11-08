@@ -125,7 +125,6 @@ def me(ctx, fields):
 @click.pass_context
 def batch(ctx, ip_list, output, output_format, fields):
     extract_fields = fields.split(',') if fields else None
-    output_format = output_format.upper()
 
     if output_format == 'CSV' and extract_fields is None:
         print(f'You need to specify a "--fields" argument with a list of fields to extract to get results in CSV. To get entire responses use JSON.', file=stderr)
