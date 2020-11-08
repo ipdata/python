@@ -109,7 +109,7 @@ def json_filter(json, fields):
 
 
 @cli.command()
-@click.option('--fields', required=False, type=str, default=None, help='Coma separated list of fields to extract')
+@click.option('--fields', required=False, type=str, default=None, help='Comma separated list of fields to extract')
 @click.pass_context
 def me(ctx, fields):
     print_ip_info(ctx.obj['api-key'], ip=None, fields=fields.split(',') if fields else None)
@@ -121,15 +121,14 @@ def me(ctx, fields):
               help='Output to file or stdout')
 @click.option('--output-format', required=False, type=click.Choice(('JSON', 'CSV'), case_sensitive=False), default='JSON',
               help='Format of output')
-@click.option('--fields', required=False, type=str, default=None, help='Coma separated list of fields to extract')
+@click.option('--fields', required=False, type=str, default=None, help='Comma separated list of fields to extract')
 @click.pass_context
 def batch(ctx, ip_list, output, output_format, fields):
     extract_fields = fields.split(',') if fields else None
     output_format = output_format.upper()
 
     if output_format == 'CSV' and extract_fields is None:
-        print(f'Output in CSV format is not supported without specification of exactly fields to extract '
-              f'because of plain nature of CSV format. Please use JSON format instead.', file=stderr)
+        print(f'You need to specify a "--fields" argument with a list of fields to extract to get results in CSV. To get entire responses use JSON.', file=stderr)
         return
 
     result_context = {}
@@ -165,8 +164,8 @@ def batch(ctx, ip_list, output, output_format, fields):
 
 @click.command()
 @click.argument('ip', required=True, type=IPAddressType())
-@click.option('--fields', required=False, type=str, default=None, help='Coma separated list of fields to extract')
-@click.option('--api-key', required=False, default=None, help='IPData API Key')
+@click.option('--fields', required=False, type=str, default=None, help='Comma separated list of fields to extract')
+@click.option('--api-key', required=False, default=None, help='ipdata API Key')
 def ip(ip, fields, api_key):
     print_ip_info(get_and_check_api_key(api_key),
                   ip=ip, fields=fields.split(',') if fields else None)

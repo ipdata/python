@@ -236,7 +236,7 @@ ipdata init <API Key>
 
 You may also pass the `--api-key <API Key>` parameter to any command to specify a different API Key.
 
-#### Lookup your own IP address
+#### Look up your own IP address
 
 ```
 ipdata
