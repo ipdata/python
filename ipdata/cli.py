@@ -112,7 +112,7 @@ def json_filter(json, fields):
 @click.option('--fields', required=False, type=str, default=None, help='Comma separated list of fields to extract')
 @click.pass_context
 def me(ctx, fields):
-    print_ip_info(ctx.obj['api-key'], ip=None, fields=fields.split(',') if fields else None)
+    print_ip_info(ctx.obj['api-key'], ip=None, fields=fields)
 
 
 @cli.command()
@@ -168,15 +168,14 @@ def batch(ctx, ip_list, output, output_format, fields):
 @click.option('--fields', required=False, type=str, default=None, help='Comma separated list of fields to extract')
 @click.option('--api-key', required=False, default=None, help='ipdata API Key')
 def ip(ip, fields, api_key):
-    print_ip_info(get_and_check_api_key(api_key),
-                  ip=ip, fields=fields.split(',') if fields else None)
+    print_ip_info(get_and_check_api_key(api_key), ip=ip, fields=fields)
 
 
 def print_ip_info(api_key, ip=None, fields=None):
     try:
         json.dump(get_ip_info(api_key, ip, fields), stdout)
     except ValueError as e:
-        print(f'Error: IP address {e}', file=stderr)
+        print(f'Error: {e}', file=stderr)
 
 
 def get_ip_info(api_key, ip=None, fields=None):
@@ -185,14 +184,7 @@ def get_ip_info(api_key, ip=None, fields=None):
         print(f'Please initialize the cli by running "ipdata init <api key>" then try again or pass an API key with the --api-key option', file=stderr)
         sys.exit(1)
     ip_data = IPData(api_key)
-    if ip:
-        res = ip_data.lookup(ip)
-    else:
-        res = ip_data.lookup()
-    if fields and len(fields) > 0:
-        return json_filter(res, fields)
-    else:
-        return res
+    return ip_data.lookup(ip, fields=fields.split(',') if fields else None)
 
 
 def lookup_field(data, field):
