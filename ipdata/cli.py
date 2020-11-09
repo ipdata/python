@@ -154,12 +154,12 @@ def batch(ctx, ip_list, output, output_format, fields):
         return
 
     ip_data = IPData(get_and_check_api_key(ctx.obj['api-key']))
-    res = ip_data.bulk_lookup(
-        list(
-            filter(lambda ip: len(ip) > 0,
-                   [ip.strip() for ip in ip_list])
-        ), extract_fields)
-    print_result(res)
+    ips = list(
+        filter(lambda ip: len(ip) > 0, [ip.strip() for ip in ip_list])
+    )
+    for i in range(0, len(ips), 100):
+        res = ip_data.bulk_lookup(ips[i:i+100], extract_fields)
+        print_result(res)
     finish()
 
 
