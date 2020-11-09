@@ -141,16 +141,15 @@ def batch(ctx, ip_list, output, output_format, fields):
         result_context['writer'] = csv.writer(output)
 
         def print_result(res):
-            result_context['writer'].writerow([res[k] for k in extract_fields])
+            for result in res['responses']:
+                result_context['writer'].writerow([result[k] for k in extract_fields])
 
         def finish():
             pass
 
     elif output_format == 'JSON':
-        result_context['results'] = []
-
         def print_result(res):
-            result_context['results'].append(res)
+            result_context['results'] = res['responses']
 
         def finish():
             json.dump(result_context, fp=output)
@@ -159,10 +158,13 @@ def batch(ctx, ip_list, output, output_format, fields):
         print(f'Unsupported format: {output_format}', file=stderr)
         return
 
-    for ip in ip_list:
-        ip = ip.strip()
-        if len(ip) > 0:
-            print_result(get_ip_info(ctx.obj['api-key'], ip=ip.strip(), fields=extract_fields))
+    ip_data = IPData(get_and_check_api_key(ctx.obj['api-key']))
+    res = ip_data.bulk_lookup(
+        list(
+            filter(lambda ip: len(ip) > 0,
+                   [ip.strip() for ip in ip_list])
+        ), extract_fields)
+    print_result(res)
     finish()
 
 
