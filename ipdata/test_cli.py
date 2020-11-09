@@ -18,3 +18,6 @@ class CliTestCase(TestCase):
 
         res = json_filter(json, ('d',))
         self.assertDictEqual({'d': 3}, res)
+
+if __name__ == '__main__':
+    unittest.main()

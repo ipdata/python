@@ -4,7 +4,7 @@ import os
 import sys
 from ipaddress import ip_address
 from pathlib import Path
-from sys import stderr, stdout
+from sys import stderr, stdout, exit
 
 import click
 
@@ -31,12 +31,16 @@ class IPAddressType(click.ParamType):
         return 'IP Address'
 
 
-@click.group(help='CLI for IPData API', invoke_without_command=True)
-@click.option('--api-key', required=False, default=None, help='IPData API Key')
+@click.group(help='CLI for ipdata API', invoke_without_command=True)
+@click.option('--api-key', required=False, default=None, help='ipdata API Key')
 @click.pass_context
 def cli(ctx, api_key):
     ctx.ensure_object(dict)
-    ctx.obj['api-key'] = get_and_check_api_key(api_key)
+    key = ctx.obj['api-key'] = get_and_check_api_key(api_key)
+    if not ctx.invoked_subcommand == "init":
+        if key is None:
+            print(f'Please initialize the cli by running "ipdata init <api key>" then try again', file=stderr)
+            sys.exit(1)
     if ctx.invoked_subcommand is None:
         print_ip_info(api_key)
     else:
@@ -62,9 +66,6 @@ def get_api_key():
 def get_and_check_api_key(api_key: str = None) -> str:
     if api_key is None:
         api_key = get_api_key()
-    if api_key is None:
-        print(f'Please specify IPData API Key', file=stderr)
-        raise WrongAPIKey
     return api_key
 
 
@@ -76,17 +77,12 @@ def init(api_key):
     ipdata = IPData(api_key)
     res = ipdata.lookup('8.8.8.8')
     if res['status'] == 200:
-        existing_api_key = get_api_key()
-        if existing_api_key:
-            print(f'Warning: You already have an IPData API Key "{existing_api_key}" listed in {key_path}. '
-                  f'It will be overwritten with {api_key}',
-                  file=stderr)
 
         with open(key_path, 'w') as f:
             f.write(api_key)
-        print(f'New API Key is saved to {key_path}')
+        print(f'Successfully initialized.')
     else:
-        print(f'Failed to check the API Key (Error: {res["status"]}): {res["message"]}',
+        print(f'Setup failed. (Error: {res["status"]}): {res["message"]}',
               file=stderr)
 
 
@@ -113,7 +109,7 @@ def json_filter(json, fields):
 
 
 @cli.command()
-@click.option('--fields', required=False, type=str, default=None, help='Coma separated list of fields to extract')
+@click.option('--fields', required=False, type=str, default=None, help='Comma separated list of fields to extract')
 @click.pass_context
 def me(ctx, fields):
     print_ip_info(ctx.obj['api-key'], ip=None, fields=fields.split(',') if fields else None)
@@ -125,14 +121,13 @@ def me(ctx, fields):
               help='Output to file or stdout')
 @click.option('--output-format', required=False, type=click.Choice(('JSON', 'CSV'), case_sensitive=False), default='JSON',
               help='Format of output')
-@click.option('--fields', required=False, type=str, default=None, help='Coma separated list of fields to extract')
+@click.option('--fields', required=False, type=str, default=None, help='Comma separated list of fields to extract')
 @click.pass_context
 def batch(ctx, ip_list, output, output_format, fields):
     extract_fields = fields.split(',') if fields else None
 
     if output_format == 'CSV' and extract_fields is None:
-        print(f'Output in CSV format is not supported without specification of exactly fields to extract '
-              f'because of plain nature of CSV format. Please use JSON format instead.', file=stderr)
+        print(f'You need to specify a "--fields" argument with a list of fields to extract to get results in CSV. To get entire responses use JSON.', file=stderr)
         return
 
     result_context = {}
@@ -170,8 +165,8 @@ def batch(ctx, ip_list, output, output_format, fields):
 
 @click.command()
 @click.argument('ip', required=True, type=IPAddressType())
-@click.option('--fields', required=False, type=str, default=None, help='Coma separated list of fields to extract')
-@click.option('--api-key', required=False, default=None, help='IPData API Key')
+@click.option('--fields', required=False, type=str, default=None, help='Comma separated list of fields to extract')
+@click.option('--api-key', required=False, default=None, help='ipdata API Key')
 def ip(ip, fields, api_key):
     print_ip_info(get_and_check_api_key(api_key),
                   ip=ip, fields=fields.split(',') if fields else None)
@@ -185,7 +180,11 @@ def print_ip_info(api_key, ip=None, fields=None):
 
 
 def get_ip_info(api_key, ip=None, fields=None):
-    ip_data = IPData(get_and_check_api_key(api_key))
+    api_key = get_and_check_api_key(api_key)
+    if api_key is None:
+        print(f'Please initialize the cli by running "ipdata init <api key>" then try again or pass an API key with the --api-key option', file=stderr)
+        sys.exit(1)
+    ip_data = IPData(api_key)
     if ip:
         res = ip_data.lookup(ip)
     else:
