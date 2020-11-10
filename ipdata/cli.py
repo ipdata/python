@@ -132,12 +132,13 @@ def me(ctx, fields):
 @click.argument('ip-list', required=True, type=click.File(mode='r', encoding='utf-8'))
 @click.option('--output', required=False, default=stdout, type=click.File(mode='w', encoding='utf-8'),
               help='Output to file or stdout')
-@click.option('--output-format', required=False, type=click.Choice(('JSON', 'CSV'), case_sensitive=False), default='JSON',
-              help='Format of output')
+@click.option('--output-format', required=False, type=click.Choice(('JSON', 'CSV'), case_sensitive=False),
+              default='JSON', help='Format of output')
 @click.option('--fields', required=False, type=str, default=None, help='Comma separated list of fields to extract')
 @click.pass_context
 def batch(ctx, ip_list, output, output_format, fields):
     extract_fields = fields.split(',') if fields else None
+    output_format = output_format.upper()
 
     if output_format == 'CSV' and extract_fields is None:
         print(f'You need to specify a "--fields" argument with a list of fields to extract to get results in CSV. To get entire responses use JSON.', file=stderr)
@@ -193,7 +194,7 @@ def ip(ip, fields, api_key):
 
 def print_ip_info(api_key, ip=None, fields=None):
     try:
-        json.dump(get_ip_info(api_key, ip, fields), stdout)
+        json.dump(get_ip_info(api_key, ip, fields=fields), stdout)
     except ValueError as e:
         print(f'Error: {e}', file=stderr)
 
@@ -201,7 +202,7 @@ def print_ip_info(api_key, ip=None, fields=None):
 def filter_json_response(batch=False):
     def decorator(func):
         def wrapper(*args, **kwargs):
-            if 'fields' in kwargs:
+            if 'fields' in kwargs and kwargs['fields']:
                 fields = kwargs['fields']
                 prepared_fields = OrderedSet(filter(
                     lambda x: len(x.strip()) > 0,
@@ -227,7 +228,7 @@ def filter_json_response(batch=False):
     return decorator
 
 
-@filter_json_response
+@filter_json_response()
 def get_ip_info(api_key, ip=None, fields=None):
     api_key = get_and_check_api_key(api_key)
     if api_key is None:
