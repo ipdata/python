@@ -78,7 +78,6 @@ def init(api_key):
     ipdata = IPData(api_key)
     res = ipdata.lookup('8.8.8.8')
     if res['status'] == 200:
-
         with open(key_path, 'w') as f:
             f.write(api_key)
         print(f'Successfully initialized.')
@@ -236,26 +235,6 @@ def get_ip_info(api_key, ip=None, fields=None):
         sys.exit(1)
     ip_data = IPData(api_key)
     return ip_data.lookup(ip, fields=fields)
-
-
-def lookup_field(data, field):
-    if field in data:
-        return field, data[field]
-    elif '.' in field:
-        parent, children = field.split('.')
-        parent_field, parent_data = lookup_field(data, parent)
-        if parent_field:
-            children_field, children_data = lookup_field(parent_data, children)
-            return parent_field, {parent_field: children_data}
-    return None, None
-
-
-# @cli.command()
-# @click.argument('ip', type=str)
-# @click.argument('fields', type=str, nargs=-1)
-# @click.option('--api_key', required=False, default=None, help='IPData API Key')
-# def ip(ip, fields, api_key):
-#     print_ip_info(api_key, ip, fields)
 
 
 @cli.command()
