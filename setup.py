@@ -8,9 +8,10 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 # This call to setup() does all the work
+# ToDo: add bumpversion, run in ci
 setup(
     name="ipdata",
-    version="3.4.1",
+    version="3.4.2",
     description="Python Client for the ipdata IP Geolocation API",
     long_description=README,
     long_description_content_type="text/markdown",
