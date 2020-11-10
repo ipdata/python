@@ -4,9 +4,10 @@ import os
 import sys
 from ipaddress import ip_address
 from pathlib import Path
-from sys import stderr, stdout, exit
+from sys import stderr, stdout
 
 import click
+from setuptools._vendor.ordered_set import OrderedSet
 
 if __name__ == '__main__':
     from ipdata import IPData
@@ -86,6 +87,18 @@ def init(api_key):
               file=stderr)
 
 
+def get_json_value(json, name):
+    if name in json:
+        return json[name]
+    elif name.find('.') != -1:
+        parts = name.split('.')
+        part = parts[0] if len(parts) > 1 else None
+        if part and part in json:
+            return get_json_value(json[part], '.'.join(parts[1:]))
+    else:
+        return None
+
+
 def json_filter(json, fields):
     res = dict()
     for name in fields:
@@ -137,7 +150,9 @@ def batch(ctx, ip_list, output, output_format, fields):
 
         def print_result(res):
             for result in res['responses']:
-                result_context['writer'].writerow([result[k] for k in extract_fields])
+                result_context['writer'].writerow(
+                    [get_json_value(result, k) for k in extract_fields]
+                )
 
         def finish():
             pass
@@ -157,9 +172,14 @@ def batch(ctx, ip_list, output, output_format, fields):
     ips = list(
         filter(lambda ip: len(ip) > 0, [ip.strip() for ip in ip_list])
     )
+
+    @filter_json_response(batch=True)
+    def get_bulk_result(ip_chunk, fields):
+        res = ip_data.bulk_lookup(ip_chunk, fields=fields)
+        return res
+
     for i in range(0, len(ips), 100):
-        res = ip_data.bulk_lookup(ips[i:i+100], extract_fields)
-        print_result(res)
+        print_result(get_bulk_result(ips[i:i + 100], fields=fields))
     finish()
 
 
@@ -178,13 +198,43 @@ def print_ip_info(api_key, ip=None, fields=None):
         print(f'Error: {e}', file=stderr)
 
 
+def filter_json_response(batch=False):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            if 'fields' in kwargs:
+                fields = kwargs['fields']
+                prepared_fields = OrderedSet(filter(
+                    lambda x: len(x.strip()) > 0,
+                    fields.split(',') if fields else None
+                ))
+                plain_fields = list(OrderedSet(map(lambda f: f.split('.')[0], prepared_fields)))
+
+                del kwargs['fields']
+                kwargs['fields'] = plain_fields
+
+                if batch:
+                    responses = func(*args, **kwargs)
+                    filtered_responses = []
+                    for r in responses['responses']:
+                        filtered_responses.append(json_filter(r, prepared_fields))
+                    responses['responses'] = filtered_responses
+                    return responses
+                else:
+                    return json_filter(func(*args, **kwargs), prepared_fields)
+            else:
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+@filter_json_response
 def get_ip_info(api_key, ip=None, fields=None):
     api_key = get_and_check_api_key(api_key)
     if api_key is None:
         print(f'Please initialize the cli by running "ipdata init <api key>" then try again or pass an API key with the --api-key option', file=stderr)
         sys.exit(1)
     ip_data = IPData(api_key)
-    return ip_data.lookup(ip, fields=fields.split(',') if fields else None)
+    return ip_data.lookup(ip, fields=fields)
 
 
 def lookup_field(data, field):
