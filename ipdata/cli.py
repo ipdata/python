@@ -136,7 +136,10 @@ def do_lookup(ip_chunk, fields, api_key):
     def get_bulk_result(ip_chunk, fields):
         return ip_data.bulk_lookup(ip_chunk, fields=fields)
 
-    return get_bulk_result(ip_chunk, fields=fields)
+    res = get_bulk_result(ip_chunk, fields=fields)
+    if res['status'] == 403:
+        raise WrongAPIKey(res['message'])
+    return res
 
 
 @cli.command()
@@ -150,6 +153,8 @@ def do_lookup(ip_chunk, fields, api_key):
               help='Number of workers')
 @click.pass_context
 def batch(ctx, ip_list, output, output_format, fields, workers):
+    print(f'Batch lookup IP addresses from {ip_list.name}, save results to {output.name}', file=stderr)
+
     extract_fields = fields.split(',') if fields else None
     output_format = output_format.upper()
 
@@ -166,7 +171,8 @@ def batch(ctx, ip_list, output, output_format, fields, workers):
             return False
 
     with tqdm(total=0) as t, \
-        multiprocessing.Pool(workers) as pool:
+            multiprocessing.Pool(workers) as pool:
+        try:
             ips = list(
                 filter(filter_ip, [ip.strip() for ip in ip_list])
             )
@@ -187,21 +193,37 @@ def batch(ctx, ip_list, output, output_format, fields, workers):
                     pass
 
             elif output_format == 'JSON':
-                result_context['results'] = []
+                result_context['head_is_printed'] = False
+                result_context['tail_is_printed'] = False
+                result_context['coma'] = False
+
+                def write_json_part(part):
+                    if not result_context['head_is_printed']:
+                        print('{"results": [', file=output, end='')
+                    for p in part:
+                        if result_context['coma']:
+                            print(',', file=output, end='')
+                        json.dump(p, output)
+                        result_context['coma'] = True
 
                 def print_result(res):
                     t.update(len(res['responses']))
-                    result_context['results'].append(res['responses'])
+                    write_json_part(res['responses'])
 
                 def finish():
-                    json.dump(result_context, fp=output)
+                    if not result_context['tail_is_printed']:
+                        print(']}', file=output, end='')
 
             else:
                 print(f'Unsupported format: {output_format}', file=stderr)
                 return
 
             def handle_error(e):
-                print(e)
+                if isinstance(e, WrongAPIKey):
+                    print('\n', e, file=stderr)
+                    pool.terminate()
+                    exit(1)
+                print(e, file=stderr)
 
             for i in range(0, len(ips), 100):
                 chunk = ips[i:i + 100]
@@ -212,6 +234,8 @@ def batch(ctx, ip_list, output, output_format, fields, workers):
                                  kwds=dict(fields=fields, api_key=ctx.obj['api-key']),
                                  callback=print_result,
                                  error_callback=handle_error)
+
+        finally:
             pool.close()
             pool.join()
             t.close()
@@ -251,9 +275,10 @@ def filter_json_response(batch=False):
                 if batch:
                     responses = func(*args, **kwargs)
                     filtered_responses = []
-                    for r in responses['responses']:
-                        filtered_responses.append(json_filter(r, prepared_fields))
-                    responses['responses'] = filtered_responses
+                    if 'responses' in responses:
+                        for r in responses['responses']:
+                            filtered_responses.append(json_filter(r, prepared_fields))
+                        responses['responses'] = filtered_responses
                     return responses
                 else:
                     return json_filter(func(*args, **kwargs), prepared_fields)
