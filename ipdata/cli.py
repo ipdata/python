@@ -153,7 +153,7 @@ def do_lookup(ip_chunk, fields, api_key):
               help='Number of workers')
 @click.pass_context
 def batch(ctx, ip_list, output, output_format, fields, workers):
-    print(f'Batch lookup IP addresses from {ip_list.name}')
+    print(f'Batch lookup IP addresses from {ip_list.name}, save results to {output.name}', file=stderr)
 
     extract_fields = fields.split(',') if fields else None
     output_format = output_format.upper()
@@ -172,60 +172,75 @@ def batch(ctx, ip_list, output, output_format, fields, workers):
 
     with tqdm(total=0) as t, \
             multiprocessing.Pool(workers) as pool:
-        ips = list(
-            filter(filter_ip, [ip.strip() for ip in ip_list])
-        )
+        try:
+            ips = list(
+                filter(filter_ip, [ip.strip() for ip in ip_list])
+            )
 
-        result_context = {}
-        if output_format == 'CSV':
-            print(f'# {fields}', file=output)  # print comment with columns
-            result_context['writer'] = csv.writer(output)
+            result_context = {}
+            if output_format == 'CSV':
+                print(f'# {fields}', file=output)  # print comment with columns
+                result_context['writer'] = csv.writer(output)
 
-            def print_result(res):
-                for result in res['responses']:
-                    t.update()
-                    result_context['writer'].writerow(
-                        [get_json_value(result, k) for k in extract_fields]
-                    )
+                def print_result(res):
+                    for result in res['responses']:
+                        t.update()
+                        result_context['writer'].writerow(
+                            [get_json_value(result, k) for k in extract_fields]
+                        )
 
-            def finish():
-                pass
+                def finish():
+                    pass
 
-        elif output_format == 'JSON':
-            result_context['results'] = []
+            elif output_format == 'JSON':
+                result_context['head_is_printed'] = False
+                result_context['tail_is_printed'] = False
+                result_context['coma'] = False
 
-            def print_result(res):
-                t.update(len(res['responses']))
-                result_context['results'].append(res['responses'])
+                def write_json_part(part):
+                    if not result_context['head_is_printed']:
+                        print('{"results": [', file=output, end='')
+                    for p in part:
+                        if result_context['coma']:
+                            print(',', file=output, end='')
+                        json.dump(p, output)
+                        result_context['coma'] = True
 
-            def finish():
-                json.dump(result_context, fp=output)
+                def print_result(res):
+                    t.update(len(res['responses']))
+                    write_json_part(res['responses'])
 
-        else:
-            print(f'Unsupported format: {output_format}', file=stderr)
-            return
+                def finish():
+                    if not result_context['tail_is_printed']:
+                        print(']}', file=output, end='')
 
-        def handle_error(e):
-            if isinstance(e, WrongAPIKey):
-                print('\n', e, file=stderr)
-                pool.terminate()
-                exit(1)
-            print(e, file=stderr)
+            else:
+                print(f'Unsupported format: {output_format}', file=stderr)
+                return
 
-        for i in range(0, len(ips), 100):
-            chunk = ips[i:i + 100]
-            t.total += len(chunk)
+            def handle_error(e):
+                if isinstance(e, WrongAPIKey):
+                    print('\n', e, file=stderr)
+                    pool.terminate()
+                    exit(1)
+                print(e, file=stderr)
 
-            pool.apply_async(do_lookup,
-                             args=[chunk],
-                             kwds=dict(fields=fields, api_key=ctx.obj['api-key']),
-                             callback=print_result,
-                             error_callback=handle_error)
-        pool.close()
-        pool.join()
-        t.close()
+            for i in range(0, len(ips), 100):
+                chunk = ips[i:i + 100]
+                t.total += len(chunk)
 
-        finish()
+                pool.apply_async(do_lookup,
+                                 args=[chunk],
+                                 kwds=dict(fields=fields, api_key=ctx.obj['api-key']),
+                                 callback=print_result,
+                                 error_callback=handle_error)
+
+        finally:
+            pool.close()
+            pool.join()
+            t.close()
+
+            finish()
 
 
 @click.command()
