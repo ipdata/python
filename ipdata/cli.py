@@ -187,9 +187,11 @@ def batch(ctx, ip_list, output, output_format, fields, workers):
                     pass
 
             elif output_format == 'JSON':
+                result_context['results'] = []
+
                 def print_result(res):
                     t.update(len(res['responses']))
-                    result_context['results'] = res['responses']
+                    result_context['results'].append(res['responses'])
 
                 def finish():
                     json.dump(result_context, fp=output)
@@ -212,6 +214,7 @@ def batch(ctx, ip_list, output, output_format, fields, workers):
                                  error_callback=handle_error)
             pool.close()
             pool.join()
+            t.close()
 
             finish()
 
