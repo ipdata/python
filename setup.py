@@ -26,7 +26,7 @@ setup(
     ],
     packages=["ipdata"],
     include_package_data=True,
-    install_requires=["requests", "ipaddress", "click"],
+    install_requires=["requests", "ipaddress", "click", "tqdm"],
     entry_points={
         'console_scripts': [
             'ipdata = ipdata.cli:todo',

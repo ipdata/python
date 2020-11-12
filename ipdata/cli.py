@@ -1,5 +1,6 @@
 import csv
 import json
+import multiprocessing
 import os
 import sys
 from ipaddress import ip_address
@@ -8,8 +9,9 @@ from sys import stderr, stdout
 
 import click
 from setuptools._vendor.ordered_set import OrderedSet
+from tqdm import tqdm
 
-if __name__ == '__main__':
+if __name__ == '__main__' or __name__ == '__mp_main__':
     from ipdata import IPData
 else:
     from .ipdata import IPData
@@ -78,7 +80,6 @@ def init(api_key):
     ipdata = IPData(api_key)
     res = ipdata.lookup('8.8.8.8')
     if res['status'] == 200:
-
         with open(key_path, 'w') as f:
             f.write(api_key)
         print(f'Successfully initialized.')
@@ -128,6 +129,16 @@ def me(ctx, fields):
     print_ip_info(ctx.obj['api-key'], ip=None, fields=fields)
 
 
+def do_lookup(ip_chunk, fields, api_key):
+    ip_data = IPData(get_and_check_api_key(api_key))
+
+    @filter_json_response(batch=True)
+    def get_bulk_result(ip_chunk, fields):
+        return ip_data.bulk_lookup(ip_chunk, fields=fields)
+
+    return get_bulk_result(ip_chunk, fields=fields)
+
+
 @cli.command()
 @click.argument('ip-list', required=True, type=click.File(mode='r', encoding='utf-8'))
 @click.option('--output', required=False, default=stdout, type=click.File(mode='w', encoding='utf-8'),
@@ -135,8 +146,10 @@ def me(ctx, fields):
 @click.option('--output-format', required=False, type=click.Choice(('JSON', 'CSV'), case_sensitive=False),
               default='JSON', help='Format of output')
 @click.option('--fields', required=False, type=str, default=None, help='Comma separated list of fields to extract')
+@click.option('--workers', '-w', 'workers', required=False, type=int, default=multiprocessing.cpu_count(),
+              help='Number of workers')
 @click.pass_context
-def batch(ctx, ip_list, output, output_format, fields):
+def batch(ctx, ip_list, output, output_format, fields, workers):
     extract_fields = fields.split(',') if fields else None
     output_format = output_format.upper()
 
@@ -144,44 +157,66 @@ def batch(ctx, ip_list, output, output_format, fields):
         print(f'You need to specify a "--fields" argument with a list of fields to extract to get results in CSV. To get entire responses use JSON.', file=stderr)
         return
 
-    result_context = {}
-    if output_format == 'CSV':
-        print(f'# {fields}', file=output)  # print comment with columns
-        result_context['writer'] = csv.writer(output)
+    def filter_ip(value):
+        value = value.strip()
+        try:
+            ip_address(value)
+            return True
+        except:
+            return False
 
-        def print_result(res):
-            for result in res['responses']:
-                result_context['writer'].writerow(
-                    [get_json_value(result, k) for k in extract_fields]
-                )
+    with tqdm(total=0) as t, \
+        multiprocessing.Pool(workers) as pool:
+            ips = list(
+                filter(filter_ip, [ip.strip() for ip in ip_list])
+            )
 
-        def finish():
-            pass
+            result_context = {}
+            if output_format == 'CSV':
+                print(f'# {fields}', file=output)  # print comment with columns
+                result_context['writer'] = csv.writer(output)
 
-    elif output_format == 'JSON':
-        def print_result(res):
-            result_context['results'] = res['responses']
+                def print_result(res):
+                    for result in res['responses']:
+                        t.update()
+                        result_context['writer'].writerow(
+                            [get_json_value(result, k) for k in extract_fields]
+                        )
 
-        def finish():
-            json.dump(result_context, fp=output)
+                def finish():
+                    pass
 
-    else:
-        print(f'Unsupported format: {output_format}', file=stderr)
-        return
+            elif output_format == 'JSON':
+                result_context['results'] = []
 
-    ip_data = IPData(get_and_check_api_key(ctx.obj['api-key']))
-    ips = list(
-        filter(lambda ip: len(ip) > 0, [ip.strip() for ip in ip_list])
-    )
+                def print_result(res):
+                    t.update(len(res['responses']))
+                    result_context['results'].append(res['responses'])
 
-    @filter_json_response(batch=True)
-    def get_bulk_result(ip_chunk, fields):
-        res = ip_data.bulk_lookup(ip_chunk, fields=fields)
-        return res
+                def finish():
+                    json.dump(result_context, fp=output)
 
-    for i in range(0, len(ips), 100):
-        print_result(get_bulk_result(ips[i:i + 100], fields=fields))
-    finish()
+            else:
+                print(f'Unsupported format: {output_format}', file=stderr)
+                return
+
+            def handle_error(e):
+                print(e)
+
+            for i in range(0, len(ips), 100):
+                chunk = ips[i:i + 100]
+                t.total += len(chunk)
+
+                pool.apply_async(do_lookup,
+                                 args=[chunk],
+                                 kwds=dict(fields=fields, api_key=ctx.obj['api-key']),
+                                 callback=print_result,
+                                 error_callback=handle_error)
+            pool.close()
+            pool.join()
+            t.close()
+
+            finish()
 
 
 @click.command()
@@ -236,26 +271,6 @@ def get_ip_info(api_key, ip=None, fields=None):
         sys.exit(1)
     ip_data = IPData(api_key)
     return ip_data.lookup(ip, fields=fields)
-
-
-def lookup_field(data, field):
-    if field in data:
-        return field, data[field]
-    elif '.' in field:
-        parent, children = field.split('.')
-        parent_field, parent_data = lookup_field(data, parent)
-        if parent_field:
-            children_field, children_data = lookup_field(parent_data, children)
-            return parent_field, {parent_field: children_data}
-    return None, None
-
-
-# @cli.command()
-# @click.argument('ip', type=str)
-# @click.argument('fields', type=str, nargs=-1)
-# @click.option('--api_key', required=False, default=None, help='IPData API Key')
-# def ip(ip, fields, api_key):
-#     print_ip_info(api_key, ip, fields)
 
 
 @cli.command()
