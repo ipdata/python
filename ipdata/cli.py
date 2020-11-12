@@ -136,7 +136,10 @@ def do_lookup(ip_chunk, fields, api_key):
     def get_bulk_result(ip_chunk, fields):
         return ip_data.bulk_lookup(ip_chunk, fields=fields)
 
-    return get_bulk_result(ip_chunk, fields=fields)
+    res = get_bulk_result(ip_chunk, fields=fields)
+    if res['status'] == 403:
+        raise WrongAPIKey(res['message'])
+    return res
 
 
 @cli.command()
@@ -203,7 +206,11 @@ def batch(ctx, ip_list, output, output_format, fields, workers):
             return
 
         def handle_error(e):
-            print(e)
+            if isinstance(e, WrongAPIKey):
+                print('\n', e, file=stderr)
+                pool.terminate()
+                exit(1)
+            print(e, file=stderr)
 
         for i in range(0, len(ips), 100):
             chunk = ips[i:i + 100]
@@ -253,9 +260,10 @@ def filter_json_response(batch=False):
                 if batch:
                     responses = func(*args, **kwargs)
                     filtered_responses = []
-                    for r in responses['responses']:
-                        filtered_responses.append(json_filter(r, prepared_fields))
-                    responses['responses'] = filtered_responses
+                    if 'responses' in responses:
+                        for r in responses['responses']:
+                            filtered_responses.append(json_filter(r, prepared_fields))
+                        responses['responses'] = filtered_responses
                     return responses
                 else:
                     return json_filter(func(*args, **kwargs), prepared_fields)
