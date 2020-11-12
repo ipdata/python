@@ -150,6 +150,8 @@ def do_lookup(ip_chunk, fields, api_key):
               help='Number of workers')
 @click.pass_context
 def batch(ctx, ip_list, output, output_format, fields, workers):
+    print(f'Batch lookup IP addresses from {ip_list.name}')
+
     extract_fields = fields.split(',') if fields else None
     output_format = output_format.upper()
 
@@ -166,57 +168,57 @@ def batch(ctx, ip_list, output, output_format, fields, workers):
             return False
 
     with tqdm(total=0) as t, \
-        multiprocessing.Pool(workers) as pool:
-            ips = list(
-                filter(filter_ip, [ip.strip() for ip in ip_list])
-            )
+            multiprocessing.Pool(workers) as pool:
+        ips = list(
+            filter(filter_ip, [ip.strip() for ip in ip_list])
+        )
 
-            result_context = {}
-            if output_format == 'CSV':
-                print(f'# {fields}', file=output)  # print comment with columns
-                result_context['writer'] = csv.writer(output)
+        result_context = {}
+        if output_format == 'CSV':
+            print(f'# {fields}', file=output)  # print comment with columns
+            result_context['writer'] = csv.writer(output)
 
-                def print_result(res):
-                    for result in res['responses']:
-                        t.update()
-                        result_context['writer'].writerow(
-                            [get_json_value(result, k) for k in extract_fields]
-                        )
+            def print_result(res):
+                for result in res['responses']:
+                    t.update()
+                    result_context['writer'].writerow(
+                        [get_json_value(result, k) for k in extract_fields]
+                    )
 
-                def finish():
-                    pass
+            def finish():
+                pass
 
-            elif output_format == 'JSON':
-                result_context['results'] = []
+        elif output_format == 'JSON':
+            result_context['results'] = []
 
-                def print_result(res):
-                    t.update(len(res['responses']))
-                    result_context['results'].append(res['responses'])
+            def print_result(res):
+                t.update(len(res['responses']))
+                result_context['results'].append(res['responses'])
 
-                def finish():
-                    json.dump(result_context, fp=output)
+            def finish():
+                json.dump(result_context, fp=output)
 
-            else:
-                print(f'Unsupported format: {output_format}', file=stderr)
-                return
+        else:
+            print(f'Unsupported format: {output_format}', file=stderr)
+            return
 
-            def handle_error(e):
-                print(e)
+        def handle_error(e):
+            print(e)
 
-            for i in range(0, len(ips), 100):
-                chunk = ips[i:i + 100]
-                t.total += len(chunk)
+        for i in range(0, len(ips), 100):
+            chunk = ips[i:i + 100]
+            t.total += len(chunk)
 
-                pool.apply_async(do_lookup,
-                                 args=[chunk],
-                                 kwds=dict(fields=fields, api_key=ctx.obj['api-key']),
-                                 callback=print_result,
-                                 error_callback=handle_error)
-            pool.close()
-            pool.join()
-            t.close()
+            pool.apply_async(do_lookup,
+                             args=[chunk],
+                             kwds=dict(fields=fields, api_key=ctx.obj['api-key']),
+                             callback=print_result,
+                             error_callback=handle_error)
+        pool.close()
+        pool.join()
+        t.close()
 
-            finish()
+        finish()
 
 
 @click.command()
