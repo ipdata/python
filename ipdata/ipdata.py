@@ -87,8 +87,6 @@ class IPData:
         query_params = {'api-key': self.api_key}
         if len(ips) < 2:
             raise ValueError('Bulk Lookup requires more than 1 IP Address in the payload.')
-        for ip in ips:
-            self._validate_ip_address(ip)
         if fields:
             self._validate_fields(fields=fields)
             query_params['fields'] = ','.join(fields)
