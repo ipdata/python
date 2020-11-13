@@ -150,10 +150,20 @@ def do_lookup(ip_chunk, fields, api_key):
               default='JSON', help='Format of output')
 @click.option('--fields', required=False, type=str, default=None, help='Comma separated list of fields to extract')
 @click.option('--workers', '-w', 'workers', required=False, type=int, default=multiprocessing.cpu_count(),
-              help='Number of workers')
+              help=f'Number of workers, max={multiprocessing.cpu_count()}')
 @click.pass_context
 def batch(ctx, ip_list, output, output_format, fields, workers):
-    print(f'Batch lookup IP addresses from {ip_list.name}, save results to {output.name}', file=stderr)
+    _batch(ip_list, output, output_format, fields, workers, ctx.obj['api-key'])
+
+
+def _batch(ip_list, output, output_format, fields, workers, api_key):
+    print(f'Batch lookup IP addresses from {ip_list.name}, save results to {output.name}. {workers} started',
+          file=stderr)
+
+    if workers > multiprocessing.cpu_count():
+        workers = multiprocessing.cpu_count()
+    elif workers <= 0:
+        workers = 1
 
     extract_fields = fields.split(',') if fields else None
     output_format = output_format.upper()
@@ -231,7 +241,7 @@ def batch(ctx, ip_list, output, output_format, fields, workers):
 
                 pool.apply_async(do_lookup,
                                  args=[chunk],
-                                 kwds=dict(fields=fields, api_key=ctx.obj['api-key']),
+                                 kwds=dict(fields=fields, api_key=api_key),
                                  callback=print_result,
                                  error_callback=handle_error)
 

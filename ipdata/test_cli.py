@@ -1,10 +1,11 @@
+import multiprocessing
 from io import StringIO
 import sys
 import unittest
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
-from ipdata.cli import json_filter, todo, ip
+from ipdata.cli import json_filter, todo, ip, _batch
 
 
 class CliTestCase(TestCase):
@@ -58,6 +59,26 @@ class CliInitTestCase(TestCase):
             todo()
             m2.assert_not_called()
             m3.assert_called_once_with(2)
+
+
+class BatchTestCase(TestCase):
+    def setUp(self) -> None:
+        self.ip_list = StringIO('1.1.1.1\n8.8.8.8')
+        self.ip_list.name = 'in.txt'
+        self.output = StringIO()
+        self.output.name = 'out.json'
+        self.api_key = '123'
+
+    def test_workers(self):
+        with patch('multiprocessing.Pool') as m:
+            _batch(self.ip_list, self.output, 'JSON', None, 0, self.api_key)
+            m.called_once_with(multiprocessing.cpu_count())
+
+            _batch(self.ip_list, self.output, 'JSON', None, multiprocessing.cpu_count() + 10, self.api_key)
+            m.called_once_with(multiprocessing.cpu_count())
+
+            _batch(self.ip_list, self.output, 'JSON', None, 1, self.api_key)
+            m.called_once_with(1)
 
 
 if __name__ == '__main__':
