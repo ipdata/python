@@ -3,7 +3,9 @@ import json
 import multiprocessing
 import os
 import sys
+from gzip import GzipFile
 from ipaddress import ip_address
+from itertools import chain, islice
 from pathlib import Path
 from sys import stderr, stdout
 
@@ -144,7 +146,7 @@ def do_lookup(ip_chunk, fields, api_key):
 
 @cli.command()
 @click.argument('ip-list', required=True, type=click.File(mode='r', encoding='utf-8'))
-@click.option('--output', required=False, default=stdout, type=click.File(mode='w', encoding='utf-8'),
+@click.option('--output', required=False, default=stdout, type=click.File(mode='wb', encoding='utf-8'),
               help='Output to file or stdout')
 @click.option('--output-format', required=False, type=click.Choice(('JSON', 'CSV'), case_sensitive=False),
               default='JSON', help='Format of output')
@@ -157,9 +159,6 @@ def batch(ctx, ip_list, output, output_format, fields, workers):
 
 
 def _batch(ip_list, output, output_format, fields, workers, api_key):
-    print(f'Batch lookup IP addresses from {ip_list.name}, save results to {output.name}. {workers} started',
-          file=stderr)
-
     if workers > multiprocessing.cpu_count():
         workers = multiprocessing.cpu_count()
     elif workers <= 0:
@@ -183,10 +182,6 @@ def _batch(ip_list, output, output_format, fields, workers, api_key):
     with tqdm(total=0) as t, \
             multiprocessing.Pool(workers) as pool:
         try:
-            ips = list(
-                filter(filter_ip, [ip.strip() for ip in ip_list])
-            )
-
             result_context = {}
             if output_format == 'CSV':
                 print(f'# {fields}', file=output)  # print comment with columns
@@ -199,34 +194,18 @@ def _batch(ip_list, output, output_format, fields, workers, api_key):
                             [get_json_value(result, k) for k in extract_fields]
                         )
 
-                def finish():
-                    pass
-
             elif output_format == 'JSON':
-                result_context['head_is_printed'] = False
-                result_context['tail_is_printed'] = False
-                result_context['coma'] = False
-
-                def write_json_part(part):
-                    if not result_context['head_is_printed']:
-                        print('{"results": [', file=output, end='')
-                    for p in part:
-                        if result_context['coma']:
-                            print(',', file=output, end='')
-                        json.dump(p, output)
-                        result_context['coma'] = True
+                result_context['stream'] = GzipFile(fileobj=output)
 
                 def print_result(res):
                     t.update(len(res['responses']))
-                    write_json_part(res['responses'])
-
-                def finish():
-                    if not result_context['tail_is_printed']:
-                        print(']}', file=output, end='')
+                    for res in res['responses']:
+                        result_context['stream'].write(bytes(json.dumps(res), encoding='utf-8'))
+                        result_context['stream'].write(b'\n')
 
             else:
                 print(f'Unsupported format: {output_format}', file=stderr)
-                return
+                sys.exit(1)
 
             def handle_error(e):
                 if isinstance(e, WrongAPIKey):
@@ -235,10 +214,14 @@ def _batch(ip_list, output, output_format, fields, workers, api_key):
                     exit(1)
                 print(e, file=stderr)
 
-            for i in range(0, len(ips), 100):
-                chunk = ips[i:i + 100]
-                t.total += len(chunk)
+            def chunks(iterable, size):
+                iterator = iter(iterable)
+                for first in iterator:
+                    yield list(chain([first], islice(iterator, size - 1)))
 
+            for chunk in chunks(ip_list, 100):
+                chunk = list(filter(filter_ip, map(lambda c: c.strip(), chunk)))
+                t.total += len(chunk)
                 pool.apply_async(do_lookup,
                                  args=[chunk],
                                  kwds=dict(fields=fields, api_key=api_key),
@@ -249,8 +232,6 @@ def _batch(ip_list, output, output_format, fields, workers, api_key):
             pool.close()
             pool.join()
             t.close()
-
-            finish()
 
 
 @click.command()
