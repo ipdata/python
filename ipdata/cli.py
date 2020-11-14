@@ -103,24 +103,37 @@ def get_json_value(json, name):
 
 
 def json_filter(json, fields):
-    res = dict()
-    for name in fields:
-        if name in json:
-            res[name] = json[name]
-        elif name.find('.') != -1:
-            parts = name.split('.')
-            part = parts[0] if len(parts) > 1 else None
-            if part and part in json:
-                sub_value = json_filter(json[part], ('.'.join(parts[1:]), ))
-                if isinstance(sub_value, dict):
-                    if part not in res:
-                        res[part] = sub_value
+    if isinstance(json, dict):
+        res = dict()
+        for name in fields:
+            if name in json:
+                res[name] = json[name]
+            elif name.find('.') != -1:
+                parts = name.split('.')
+                part = parts[0] if len(parts) > 1 else None
+                if part and part in json:
+                    sub_value = json_filter(json[part], ('.'.join(parts[1:]), ))
+                    if isinstance(sub_value, dict):
+                        if part not in res:
+                            res[part] = sub_value
+                        else:
+                            res[part] = {**res[part], **sub_value}
                     else:
-                        res[part] = {**res[part], **sub_value}
-                else:
-                    res[part] = sub_value
+                        res[part] = sub_value
+            else:
+                pass
+    elif isinstance(json, list):
+        if len(fields) == 1:
+            res = []
+            for el in json:
+                el_res = json_filter(el, fields)
+                for name in fields:
+                    if name in el_res:
+                        res.append(el_res[name])
         else:
-            pass
+            raise ValueError('Cannot handle multiple fields in case of list object')
+    else:
+        raise ValueError(f'Cannot handle value of type ({type(json)})')
     return res
 
 
