@@ -5,7 +5,7 @@ import unittest
 from unittest import TestCase
 from unittest.mock import patch, MagicMock
 
-from ipdata.cli import json_filter, todo, ip, _batch
+from ipdata.cli import json_filter, todo, ip, _batch, get_json_value
 
 
 class CliTestCase(TestCase):
@@ -93,6 +93,14 @@ class BatchTestCase(TestCase):
         res = json_filter(json, ['a', 'e.f'])
         expected = {'a': 1, 'e': [4, 5]}
         self.assertDictEqual(expected, res)
+
+    def test_get_json_value(self):
+        json = {'ip': 1, 'languages': ['English', 'Russian']}
+        res = get_json_value(json, 'ip')
+        self.assertEqual(1, res)
+
+        res = get_json_value(json, 'languages.name')
+        self.assertEqual('English,Russian', res)
 
 
 if __name__ == '__main__':

@@ -97,7 +97,12 @@ def get_json_value(json, name):
         parts = name.split('.')
         part = parts[0] if len(parts) > 1 else None
         if part and part in json:
-            return get_json_value(json[part], '.'.join(parts[1:]))
+            if isinstance(json[part], dict):
+                return get_json_value(json[part], '.'.join(parts[1:]))
+            elif isinstance(json[part], list):
+                return ','.join(json[part])
+            else:
+                raise ValueError(f'Unsupported type ({type(json[part])})')
     else:
         return None
 
