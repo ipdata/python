@@ -86,6 +86,12 @@ class BatchTestCase(TestCase):
         expected = {'a': 1}
         self.assertDictEqual(expected, res)
 
+        res = json_filter(json, ['b.c', 'b.d'])
+        expected = {'b': {'c': 2, 'd': 3}}
+        self.assertDictEqual(expected, res)
+
+        self.assertRaises(ValueError, lambda: json_filter(json, ['a.a']))
+
         res = json_filter(json, ['a', 'b.c'])
         expected = {'a': 1, 'b': {'c': 2}}
         self.assertDictEqual(expected, res)
@@ -94,6 +100,8 @@ class BatchTestCase(TestCase):
         expected = {'a': 1, 'e': [4, 5]}
         self.assertDictEqual(expected, res)
 
+        self.assertRaises(ValueError, lambda: json_filter([{'a': 1, 'b': 1}, {'a': 2, 'b': 2}, {'a': 3, 'b': 3}], ['m.a', 'm.b']))
+
     def test_get_json_value(self):
         json = {'ip': 1, 'languages': ['English', 'Russian']}
         res = get_json_value(json, 'ip')
@@ -101,6 +109,21 @@ class BatchTestCase(TestCase):
 
         res = get_json_value(json, 'languages.name')
         self.assertEqual('English,Russian', res)
+
+        json = {'a': 1, 'b': {'c': 2, 'd': None}, 'e': None, 'f': 123}
+        res = get_json_value(json, 'b.c')
+        self.assertEqual(2, res)
+        res = get_json_value(json, 'b.d')
+        self.assertEqual(None, res)
+        res = get_json_value(json, 'e.f')
+        self.assertIsNone(res)
+        self.assertRaises(ValueError, lambda: get_json_value(json, 'a.b'))
+
+        json = {'a': None}
+        res = get_json_value(json, 'a')
+        self.assertEqual(None, res)
+        res = get_json_value(json, 'aa')
+        self.assertEqual(None, res)
 
 
 if __name__ == '__main__':

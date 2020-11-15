@@ -102,7 +102,7 @@ def get_json_value(json, name):
             elif isinstance(json[part], list):
                 return ','.join(json[part])
             elif json[part] is None:
-                return ''
+                return None
             else:
                 raise ValueError(f'Unsupported type ({type(json[part])})')
     else:
