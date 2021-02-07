@@ -13,9 +13,9 @@ import click
 from setuptools._vendor.ordered_set import OrderedSet
 from tqdm import tqdm
 
-if __name__ == '__main__' or __name__ == '__mp_main__':
+try:
     from ipdata import IPData
-else:
+except:
     from .ipdata import IPData
 
 
