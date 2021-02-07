@@ -101,6 +101,8 @@ def get_json_value(json, name):
                 return get_json_value(json[part], '.'.join(parts[1:]))
             elif isinstance(json[part], list):
                 return ','.join(json[part])
+            elif json[part] is None:
+                return None
             else:
                 raise ValueError(f'Unsupported type ({type(json[part])})')
     else:
@@ -137,6 +139,8 @@ def json_filter(json, fields):
                         res.append(el_res[name])
         else:
             raise ValueError('Cannot handle multiple fields in case of list object')
+    elif json is None:
+        res = None
     else:
         raise ValueError(f'Cannot handle value of type ({type(json)})')
     return res
@@ -312,6 +316,24 @@ def get_ip_info(api_key, ip=None, fields=None):
 def info(ctx):
     res = IPData(get_and_check_api_key(ctx.obj['api-key'])).lookup('8.8.8.8')
     print(f'Number of requests made: {res["count"]}')
+
+
+@cli.command()
+@click.option('--output', required=False, default=stdout, type=click.File(mode='w', encoding='utf-8'),
+              help='Output to file or stdout')
+@click.option('--fields', required=True, type=str, default='ip,country_code', help='Comma separated list of fields to extract')
+@click.option('--separator', help='The separator between the properties of the search results.', default=u'\t')
+@click.argument('filenames', required=True, metavar='<filenames>', type=click.Path(exists=True), nargs=-1)
+def parse(output, fields, separator, filenames):
+    extract_fields = list(filter(lambda f: len(f) > 0, map(str.strip, fields.split(','))))
+    for filename in filenames:
+        with GzipFile(filename) as gz:
+            for txt in gz:
+                js_data = json_filter(json.loads(txt), extract_fields)
+                for field in extract_fields:
+                    value = get_json_value(js_data, field)
+                    print(value, end=separator, file=output)
+                print(end='\n', file=output)
 
 
 def is_ip_address(value):
