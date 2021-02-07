@@ -259,6 +259,15 @@ pprint(response)
 
 ## Using the ipdata CLI
 
+
+### Windows Installation Notes
+
+IPData CLI needs [Python 3.8+](https://www.python.org/downloads/windows/). Python Windows installation program
+provides PIP so you can install IPData CLI the same way:
+```
+pip install ipdata
+```
+
 ### Available commands
 
 ```
