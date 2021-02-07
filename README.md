@@ -285,6 +285,7 @@ Commands:
   info
   init
   me
+  parse
 ```
 
 ### Initialize the cli with your API Key
@@ -368,13 +369,28 @@ The `--fields` option is required in case of CSV output.
 ...
 ```
 
-## Available Fields
+### Available Fields
 
 A list of all the fields returned by the API is maintained at [Response Fields](https://docs.ipdata.co/api-reference/response-fields)
+
+
+### Parse
+
+The `parse` command is for filtering GZipped JSON output of IPData from one or many files:
+```shell
+ipdata parse  2021-02-02.json.gz 2021-02-03.json.gz
+```
+Fields filtering acts the same as in `batch` command: `--fields ip,country_code`.
+
+By default, the command outputs to stdout. There is an option `--output <file>` to save filtered data to the file. 
+
 
 ## Errors
 
 A list of possible errors is available at [Status Codes](https://docs.ipdata.co/api-reference/status-codes)
+
+
+
 
 ## Tests
 
