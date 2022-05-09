@@ -11,7 +11,7 @@ README = (HERE / "README.md").read_text()
 # ToDo: add bumpversion, run in ci
 setup(
     name="ipdata",
-    version="3.4.4",
+    version="3.4.5",
     description="Python Client for the ipdata IP Geolocation API",
     long_description=README,
     long_description_content_type="text/markdown",
