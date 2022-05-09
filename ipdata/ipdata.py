@@ -18,7 +18,7 @@ class IPData:
     valid_fields = {'ip', 'is_eu', 'city', 'region', 'region_code', 'country_name', 'country_code', 'continent_name',
                     'continent_code', 'latitude', 'longitude', 'asn', 'postal', 'calling_code', 'flag',
                     'emoji_flag', 'emoji_unicode', 'carrier', 'languages', 'currency', 'time_zone', 'threat', 'count',
-                    'status'}
+                    'status', 'company'}
 
     def __init__(self, api_key):
         if not api_key:
