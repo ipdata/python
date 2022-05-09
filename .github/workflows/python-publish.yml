@@ -15,11 +15,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        sudo python -m pip install python-dotenv
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        python -m pip install python-dotenv
+        if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
     - name: Test with unittest
       run: |
-        sudo python -m unittest
+        python -m unittest
       env:
         IPDATA_API_KEY: ${{ secrets.IPDATA_API_KEY }}
     - name: Install pep517
