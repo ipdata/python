@@ -5,7 +5,7 @@ from io import StringIO
 from unittest import TestCase
 from unittest.mock import patch
 
-from .cli import json_filter, todo, _batch, get_json_value
+from cli import json_filter, todo, _batch, get_json_value
 
 
 class CliTestCase(TestCase):
