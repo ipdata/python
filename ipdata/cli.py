@@ -8,6 +8,7 @@ from ipaddress import ip_address
 from itertools import chain, islice
 from pathlib import Path
 from sys import stderr, stdout
+from rich import print_json
 
 import click
 from setuptools._vendor.ordered_set import OrderedSet
@@ -266,7 +267,7 @@ def ip(ip, fields, api_key):
 
 def print_ip_info(api_key, ip=None, fields=None):
     try:
-        json.dump(get_ip_info(api_key, ip, fields=fields), stdout)
+        print_json(data=get_ip_info(api_key, ip, fields=fields))
     except ValueError as e:
         print(f'Error: {e}', file=stderr)
 
