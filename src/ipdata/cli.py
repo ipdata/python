@@ -131,7 +131,7 @@ def pretty_print_data(data):
     # generate panels!
     for key, value in data.items():
         # simple case
-        if type(value) is str:
+        if type(value) in [str, bool]:
             single_value_panels.append(
                 Panel(f"[b]{key}[/b]\n[yellow]{value}", expand=True)
             )
@@ -140,7 +140,13 @@ def pretty_print_data(data):
         if type(value) is dict:
             tree = Tree(key)
             for k, v in value.items():
-                sub_tree = tree.add(f"[b]{k}[/b]\n[yellow]{v}")
+                if key == "threat":
+                    if v:
+                        sub_tree = tree.add(f"[b]{k}[/b]\n[bright_red]{v}")
+                    else:
+                        sub_tree = tree.add(f"[b]{k}[/b]\n[green]{v}")
+                else:
+                    sub_tree = tree.add(f"[b]{k}[/b]\n[yellow]{v}")
             multiple_value_panels.append(Panel(tree, expand=False))
 
         # if value if a list we generate nested trees
