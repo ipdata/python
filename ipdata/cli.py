@@ -66,9 +66,9 @@ from rich.panel import Panel
 from rich.progress import Progress
 from rich.tree import Tree
 
-from lolcat import LolCat
-from geofeeds import Geofeed, GeofeedValidationError
-from ipdata import DotDict, IPData
+from .lolcat import LolCat
+from .geofeeds import Geofeed, GeofeedValidationError
+from .ipdata import DotDict, IPData
 
 console = Console()
 
