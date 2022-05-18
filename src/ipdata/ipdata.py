@@ -21,6 +21,7 @@ Example
 import ipaddress
 import requests
 import logging
+import urllib3
 
 from requests.adapters import HTTPAdapter, Retry
 from rich.logging import RichHandler
@@ -115,14 +116,21 @@ class IPData(object):
         if debug:
             self.log.setLevel(logging.DEBUG)
 
+        # Work around renamed argument in urllib3.
+        if hasattr(urllib3.util.Retry.DEFAULT, "allowed_methods"):
+            methods_arg = "allowed_methods"
+        else:
+            methods_arg = "method_whitelist"
+
         # Retry settings
-        retries = Retry(
-            total=retry_limit,
-            backoff_factor=retry_backoff_factor,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["POST", "GET"],
-        )
-        adapter = HTTPAdapter(max_retries=retries)
+        retry_args = {
+            "total": retry_limit,
+            "backoff_factor": retry_backoff_factor,
+            "status_forcelist": [429, 500, 502, 503, 504],
+            methods_arg: {"POST"},
+        }
+
+        adapter = HTTPAdapter(max_retries=urllib3.Retry(**retry_args))
 
         self._session = requests.Session()
         self._session.mount("http", adapter)
