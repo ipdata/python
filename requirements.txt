@@ -1,4 +1,9 @@
 requests
-click
-tqdm
 rich
+click
+click_default_group
+pyperclip
+pytest
+hypothesis
+python-dotenv
+mmh3

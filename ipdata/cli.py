@@ -1,356 +1,481 @@
+"""This is the official IPData Command Line Interface.
+
+Use it to do one-off lookups or high throughput bulk lookups. With a ton of convenience features eg.
+copying a result to the clipboard with '-c', pretty printing results in easy to parse panels with '-p' and more!
+
+    $ ipdata --help
+    Usage: ipdata [OPTIONS] COMMAND [ARGS]...
+
+      Welcome to the ipdata CLI
+
+    Options:
+      --api-key TEXT  Your ipdata API Key. Get one for free from
+                      https://ipdata.co/sign-up.html
+      --help          Show this message and exit.
+
+    Commands:
+      lookup*
+      batch
+      init
+      usage
+      validate   
+
+    $ ipdata
+    Your IP
+
+    $ ipdata 1.1.1.1 -f ip -f country_name
+    {
+      "ip": "1.1.1.1",
+      "asn": {
+        "asn": "AS13335",
+        "name": "Cloudflare, Inc.",
+        "domain": "cloudflare.com",
+        "route": "1.1.1.0/24",
+        "type": "business"
+      },
+      "status": 200
+    }
+
+    $ ipdata 1.1.1.1 -f ip -f asn -c 
+    📋️ Copied result to clipboard!  
+
+    $ ipdata 8.8.8.8 -f ip -p
+    ╭───────────────╮
+    │ country_name  │
+    │ United States │
+    ╰───────────────╯ 
+"""
 import csv
+import io
 import json
-import multiprocessing
+import logging
 import os
 import sys
-from gzip import GzipFile
-from ipaddress import ip_address
-from itertools import chain, islice
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from sys import stderr, stdout
-from rich import print_json
+from sys import stderr
 
 import click
-from setuptools._vendor.ordered_set import OrderedSet
-from tqdm import tqdm
+import pyperclip
+from click_default_group import DefaultGroup
+from rich import print, print_json
+from rich.columns import Columns
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.panel import Panel
+from rich.progress import Progress
+from rich.tree import Tree
 
-try:
-    from ipdata import IPData
-except:
-    from .ipdata import IPData
+from lolcat import LolCat
+from geofeeds import Geofeed, GeofeedValidationError
+from ipdata import DotDict, IPData
+
+console = Console()
+
+FORMAT = "%(message)s"
+logging.basicConfig(
+    level="ERROR", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
+)
+log = logging.getLogger("rich")
+
+API_KEY_FILE = f"{Path.home()}/.ipdata"
 
 
-class WrongAPIKey(Exception):
-    pass
-
-
-class IPAddressType(click.ParamType):
-    name = 'IP_Address'
-
-    def convert(self, value, param, ctx):
-        try:
-            return ip_address(value)
-        except:
-            self.fail(f'{value} is not valid IPv4 or IPv6 address')
-
-    def __str__(self) -> str:
-        return 'IP Address'
-
-
-@click.group(help='CLI for ipdata API', invoke_without_command=True)
-@click.option('--api-key', required=False, default=None, help='ipdata API Key')
-@click.pass_context
-def cli(ctx, api_key):
-    ctx.ensure_object(dict)
-    key = ctx.obj['api-key'] = get_and_check_api_key(api_key)
-    if not ctx.invoked_subcommand == "init":
-        if key is None:
-            print(f'Please initialize the cli by running "ipdata init <api key>" then try again', file=stderr)
-            sys.exit(1)
-    if ctx.invoked_subcommand is None:
-        print_ip_info(api_key)
+def _lookup(ipdata, *args, **kwargs):
+    """
+    Wrapper for looking up individual resources with error handling. Takes the same arguments and returns the same response as ipdata.lookup.
+    """
+    try:
+        response = ipdata.lookup(*args, **kwargs)
+    except Exception as e:
+        log.error(f"Error during lookup: {e}")
     else:
-        pass
+        return response
 
 
-def get_api_key_path():
-    home = str(Path.home())
-    return os.path.join(home, '.ipdata')
+def print_ascii_logo():
+    """
+    Print cool ascii logo with lolcat.
+    """
+    options = DotDict({"animate": False, "os": 6, "spread": 3.0, "freq": 0.1})
+    logo = """
+ _           _       _        
+(_)_ __   __| | __ _| |_ __ _ 
+| | '_ \ / _` |/ _` | __/ _` |
+| | |_) | (_| | (_| | || (_| |
+|_| .__/ \__,_|\__,_|\__\__,_|
+  |_|
+    """
+    lol = LolCat()
+    lol.cat(io.StringIO(logo), options)
 
 
-def get_api_key():
-    key_path = get_api_key_path()
-    if os.path.exists(key_path):
-        with open(key_path, 'r') as f:
-            for line in f:
-                if line:
-                    return line
-    else:
-        return None
+def pretty_print_data(data):
+    """
+    Users rich to generate panels for individual API response fields for better readability!
 
+    :param data: the response from ipdata.lookup
+    """
+    # we print single value panels first then multiple value panels for better organization
+    single_value_panels = []
+    multiple_value_panels = []
 
-def get_and_check_api_key(api_key: str = None) -> str:
-    if api_key is None:
-        api_key = get_api_key()
-    return api_key
-
-
-@cli.command()
-@click.argument('api-key', required=True, type=str)
-def init(api_key):
-    key_path = get_api_key_path()
-
-    ipdata = IPData(api_key)
-    res = ipdata.lookup('8.8.8.8')
-    if res['status'] == 200:
-        with open(key_path, 'w') as f:
-            f.write(api_key)
-        print(f'Successfully initialized.')
-    else:
-        print(f'Setup failed. (Error: {res["status"]}): {res["message"]}',
-              file=stderr)
-
-
-def get_json_value(json, name):
-    if name in json:
-        return json[name]
-    elif name.find('.') != -1:
-        parts = name.split('.')
-        part = parts[0] if len(parts) > 1 else None
-        if part and part in json:
-            if isinstance(json[part], dict):
-                return get_json_value(json[part], '.'.join(parts[1:]))
-            elif isinstance(json[part], list):
-                return ','.join(json[part])
-            elif json[part] is None:
-                return None
-            else:
-                raise ValueError(f'Unsupported type ({type(json[part])})')
-    else:
-        return None
-
-
-def json_filter(json, fields):
-    if isinstance(json, dict):
-        res = dict()
-        for name in fields:
-            if name in json:
-                res[name] = json[name]
-            elif name.find('.') != -1:
-                parts = name.split('.')
-                part = parts[0] if len(parts) > 1 else None
-                if part and part in json:
-                    sub_value = json_filter(json[part], ('.'.join(parts[1:]), ))
-                    if isinstance(sub_value, dict):
-                        if part not in res:
-                            res[part] = sub_value
-                        else:
-                            res[part] = {**res[part], **sub_value}
-                    else:
-                        res[part] = sub_value
-            else:
-                pass
-    elif isinstance(json, list):
-        if len(fields) == 1:
-            res = []
-            for el in json:
-                el_res = json_filter(el, fields)
-                for name in fields:
-                    if name in el_res:
-                        res.append(el_res[name])
-        else:
-            raise ValueError('Cannot handle multiple fields in case of list object')
-    elif json is None:
-        res = None
-    else:
-        raise ValueError(f'Cannot handle value of type ({type(json)})')
-    return res
-
-
-@cli.command()
-@click.option('--fields', required=False, type=str, default=None, help='Comma separated list of fields to extract')
-@click.pass_context
-def me(ctx, fields):
-    print_ip_info(ctx.obj['api-key'], ip=None, fields=fields)
-
-
-def do_lookup(ip_chunk, fields, api_key):
-    ip_data = IPData(get_and_check_api_key(api_key))
-
-    @filter_json_response(batch=True)
-    def get_bulk_result(ip_chunk, fields):
-        return ip_data.bulk_lookup(ip_chunk, fields=fields)
-
-    res = get_bulk_result(ip_chunk, fields=fields)
-    if res['status'] == 403:
-        raise WrongAPIKey(res['message'])
-    return res
-
-
-@cli.command()
-@click.argument('ip-list', required=True, type=click.File(mode='r', encoding='utf-8'))
-@click.option('--output', required=False, default=stdout, type=click.File(mode='wb', encoding='utf-8'),
-              help='Output to file or stdout')
-@click.option('--output-format', required=False, type=click.Choice(('JSON', 'CSV'), case_sensitive=False),
-              default='JSON', help='Format of output')
-@click.option('--fields', required=False, type=str, default=None, help='Comma separated list of fields to extract')
-@click.option('--workers', '-w', 'workers', required=False, type=int, default=multiprocessing.cpu_count(),
-              help=f'Number of workers, max={multiprocessing.cpu_count()}')
-@click.pass_context
-def batch(ctx, ip_list, output, output_format, fields, workers):
-    _batch(ip_list, output, output_format, fields, workers, ctx.obj['api-key'])
-
-
-def _batch(ip_list, output, output_format, fields, workers, api_key):
-    if workers > multiprocessing.cpu_count():
-        workers = multiprocessing.cpu_count()
-    elif workers <= 0:
-        workers = 1
-
-    extract_fields = fields.split(',') if fields else None
-    output_format = output_format.upper()
-
-    if output_format == 'CSV' and extract_fields is None:
-        print(f'You need to specify a "--fields" argument with a list of fields to extract to get results in CSV. To get entire responses use JSON.', file=stderr)
+    # if data is empty do nothing
+    if not data:
         return
 
-    def filter_ip(value):
-        value = value.strip()
-        try:
-            ip_address(value)
-            return True
-        except:
-            return False
+    # push the blocklists field up a level, it's usually nested under the threat data
+    if data.get("threat", {}).get("blocklists"):
+        data["blocklists"] = data.get("threat", {}).pop("blocklists")
 
-    with tqdm(total=0) as t, \
-            multiprocessing.Pool(workers) as pool:
-        try:
-            result_context = {}
-            if output_format == 'CSV':
-                print(f'# {fields}', file=output)  # print comment with columns
-                result_context['writer'] = csv.writer(output)
+    # generate panels!
+    for key, value in data.items():
+        # simple case
+        if type(value) is str:
+            single_value_panels.append(
+                Panel(f"[b]{key}[/b]\n[yellow]{value}", expand=True)
+            )
 
-                def print_result(res):
-                    for result in res['responses']:
-                        t.update()
-                        result_context['writer'].writerow(
-                            [get_json_value(result, k) for k in extract_fields]
-                        )
+        # if the value is a dictionary we generate a tree inside a panel
+        if type(value) is dict:
+            tree = Tree(key)
+            for k, v in value.items():
+                sub_tree = tree.add(f"[b]{k}[/b]\n[yellow]{v}")
+            multiple_value_panels.append(Panel(tree, expand=False))
 
-            elif output_format == 'JSON':
-                result_context['stream'] = GzipFile(fileobj=output)
+        # if value if a list we generate nested trees
+        if type(value) is list:
+            tree = Tree(key)
+            for item in value:
+                branch = tree.add("")
+                for k, v in item.items():
+                    _ = branch.add(f"[b]{k}[/b]\n[yellow]{v}")
+            multiple_value_panels.append(Panel(tree, expand=False))
 
-                def print_result(res):
-                    t.update(len(res['responses']))
-                    for res in res['responses']:
-                        result_context['stream'].write(bytes(json.dumps(res), encoding='utf-8'))
-                        result_context['stream'].write(b'\n')
+    # print the single value panels to the console
+    console.print(Columns(single_value_panels), overflow="ignore", crop=False)
 
-            else:
-                print(f'Unsupported format: {output_format}', file=stderr)
-                sys.exit(1)
-
-            def handle_error(e):
-                if isinstance(e, WrongAPIKey):
-                    print('\n', e, file=stderr)
-                    pool.terminate()
-                    exit(1)
-                print(e, file=stderr)
-
-            def chunks(iterable, size):
-                iterator = iter(iterable)
-                for first in iterator:
-                    yield list(chain([first], islice(iterator, size - 1)))
-
-            for chunk in chunks(ip_list, 100):
-                chunk = list(filter(filter_ip, map(lambda c: c.strip(), chunk)))
-                t.total += len(chunk)
-                pool.apply_async(do_lookup,
-                                 args=[chunk],
-                                 kwds=dict(fields=fields, api_key=api_key),
-                                 callback=print_result,
-                                 error_callback=handle_error)
-
-        finally:
-            pool.close()
-            pool.join()
-            t.close()
+    # print the multiple value panels to the console
+    console.print(Columns(multiple_value_panels), overflow="ignore", crop=False)
 
 
-@click.command()
-@click.argument('ip', required=True, type=IPAddressType())
-@click.option('--fields', required=False, type=str, default=None, help='Comma separated list of fields to extract')
-@click.option('--api-key', required=False, default=None, help='ipdata API Key')
-def ip(ip, fields, api_key):
-    print_ip_info(get_and_check_api_key(api_key), ip=ip, fields=fields)
-
-
-def print_ip_info(api_key, ip=None, fields=None):
-    try:
-        print_json(data=get_ip_info(api_key, ip, fields=fields))
-    except ValueError as e:
-        print(f'Error: {e}', file=stderr)
-
-
-def filter_json_response(batch=False):
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            if 'fields' in kwargs and kwargs['fields']:
-                fields = kwargs['fields']
-                prepared_fields = OrderedSet(filter(
-                    lambda x: len(x.strip()) > 0,
-                    fields.split(',') if fields else None
-                ))
-                plain_fields = list(OrderedSet(map(lambda f: f.split('.')[0], prepared_fields)))
-
-                del kwargs['fields']
-                kwargs['fields'] = plain_fields
-
-                if batch:
-                    responses = func(*args, **kwargs)
-                    filtered_responses = []
-                    if 'responses' in responses:
-                        for r in responses['responses']:
-                            filtered_responses.append(json_filter(r, prepared_fields))
-                        responses['responses'] = filtered_responses
-                    return responses
-                else:
-                    return json_filter(func(*args, **kwargs), prepared_fields)
-            else:
-                return func(*args, **kwargs)
-        return wrapper
-    return decorator
-
-
-@filter_json_response()
-def get_ip_info(api_key, ip=None, fields=None):
-    api_key = get_and_check_api_key(api_key)
-    if api_key is None:
-        print(f'Please initialize the cli by running "ipdata init <api key>" then try again or pass an API key with the --api-key option', file=stderr)
-        sys.exit(1)
-    ip_data = IPData(api_key)
-    return ip_data.lookup(ip, fields=fields)
-
-
-@cli.command()
+@click.group(
+    help="Welcome to the ipdata CLI",
+    cls=DefaultGroup,
+    default_if_no_args=True,
+    default="lookup",
+)
+@click.option(
+    "--api-key",
+    required=False,
+    default=None,
+    help="Your ipdata API Key. Get one for free from https://ipdata.co/sign-up.html",
+)
 @click.pass_context
-def info(ctx):
-    res = IPData(get_and_check_api_key(ctx.obj['api-key'])).lookup('8.8.8.8')
-    print(f'Number of requests made: {res["count"]}')
+def cli(ctx, api_key):
+    """
+    This is the main entry point for the CLI. We first check for the presence of an API key at ~/.ipdata and make it accessible to all other commands in our group.
+    Note that the 'init' and 'validate' commands are the only ones that can run without an API key present.
+
+    :param api_key: A valid IPData API key
+    """
+    ctx.ensure_object(dict)
+    key = ctx.obj["api-key"] = (
+        Path(API_KEY_FILE).read_text() if Path(API_KEY_FILE).exists() else None
+    )
+
+    # Allow init and validate to run without an API key
+    if not ctx.invoked_subcommand in ["init", "validate"] and key is None:
+        print(
+            f'Please initialize the cli by running "ipdata init <api key>" then try again',
+            file=stderr,
+        )
+        sys.exit(1)
 
 
 @cli.command()
-@click.option('--output', required=False, default=stdout, type=click.File(mode='w', encoding='utf-8'),
-              help='Output to file or stdout')
-@click.option('--fields', required=True, type=str, default='ip,country_code', help='Comma separated list of fields to extract')
-@click.option('--separator', help='The separator between the properties of the search results.', default=u'\t')
-@click.argument('filenames', required=True, metavar='<filenames>', type=click.Path(exists=True), nargs=-1)
-def parse(output, fields, separator, filenames):
-    extract_fields = list(filter(lambda f: len(f) > 0, map(str.strip, fields.split(','))))
-    for filename in filenames:
-        with GzipFile(filename) as gz:
-            for txt in gz:
-                js_data = json_filter(json.loads(txt), extract_fields)
-                for field in extract_fields:
-                    value = get_json_value(js_data, field)
-                    print(value, end=separator, file=output)
-                print(end='\n', file=output)
+@click.argument(
+    "api-key",
+    required=True,
+    type=str,
+)
+def init(api_key):
+    """
+    Initialize the CLI by setting an API key.
 
+    :param api_key: A valid IPData API key
+    """
+    ipdata = IPData(api_key)
 
-def is_ip_address(value):
-    try:
-        ip_address(value)
-        return True
-    except ValueError:
-        return False
+    # We verify that the API key can successfully make requests by making one
+    with console.status("Verifying key ...", spinner="dots12"):
+        response = _lookup(ipdata, "8.8.8.8")
 
-
-def todo():
-    if len(sys.argv) >= 2 and is_ip_address(sys.argv[1]):
-        ip()
+    # Handle success
+    if response.status == 200:
+        with open(API_KEY_FILE, "w") as f:
+            f.write(api_key)
+        print_ascii_logo()
+        print(f"✨ Successfully initialized.")
     else:
-        cli(obj={})
+        # Handle failure
+        print(
+            f"Initialization failed. Error: {response.status}): {response.message}",
+            file=stderr,
+        )
 
 
-if __name__ == '__main__':
-    todo()
+@cli.command()
+@click.option("--api-key", "-k", required=False, default=None, help="ipdata API Key")
+@click.pass_context
+def usage(ctx, api_key):
+    """
+    Get today's usage. Quota resets every day at 00:00 UTC.
+    """
+    api_key = ctx.obj["api-key"]
+    ipdata = IPData(api_key)
+    with console.status("Getting usage ...", spinner="dots12"):
+        response = _lookup(ipdata)
+    print(f"{int(response.count):,}")
+
+
+@cli.command(default=True)
+@click.argument("resource", required=False, type=str, default="")
+@click.option(
+    "--fields", "-f", required=False, multiple=True
+)  # TODO: add list of supported fields
+@click.option("--api-key", "-k", required=False, default=None, help="ipdata API Key")
+@click.option(
+    "--pretty-print",
+    "-p",
+    is_flag=True,
+    required=False,
+    default=False,
+    help="Pretty prints results as panels",
+)
+@click.option(
+    "--raw",
+    "-r",
+    is_flag=True,
+    required=False,
+    default=False,
+    help="Disable pretty printing",
+)
+@click.option(
+    "--copy",
+    "-c",
+    is_flag=True,
+    required=False,
+    default=False,
+    help="Copy the result to the clipboard",
+)
+@click.pass_context
+def lookup(ctx, resource, fields, api_key, pretty_print, raw, copy):
+    """
+    Lookup resources by using the IPData class methods.
+
+    :param resource: The resource to lookup
+    :param fields: A list of supported fields passed as multiple parameters eg. "... -f ip -f country_name"
+    :param api_key: A valid API key
+    :param pretty_print: Whether to pretty print the response with panels
+    :param raw: Whether to print raw unformatted but syntax-highlighted JSON
+    :param copy: Copy the response to the clipboard
+    """
+    api_key = api_key if api_key else ctx.obj["api-key"]
+    ipdata = IPData(api_key)
+
+    with console.status(
+        f"""Looking up {resource if resource else "this device's IP address"}""",
+        spinner="dots12",
+    ):
+        data = _lookup(ipdata, resource, fields=fields)
+
+    if copy:
+        pyperclip.copy(json.dumps(data))
+        print(f"📋️ Copied result to clipboard!")
+    elif raw:
+        print(data)
+    elif pretty_print:
+        pretty_print_data(data)
+    else:
+        print_json(data=data)
+
+
+def chunks(lst, n=100):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i : i + n]
+
+
+def process(resources, processor, fields):
+    """Farm out work to worker threads."""
+    n_workers = os.cpu_count()
+    with ThreadPoolExecutor(n_workers) as executor:
+        futures = [
+            executor.submit(processor, chunk, fields) for chunk in chunks(resources)
+        ]
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+            except Exception as e:
+                log.error(e)
+            else:
+                yield result
+
+
+@cli.command()
+@click.argument("input", required=True, type=click.File(mode="r", encoding="utf-8"))
+@click.option(
+    "--fields", "-f", required=False, multiple=True
+)  # TODO: add list of supported fields
+@click.option(
+    "--output", "-o", required=True, type=click.File(mode="w", encoding="utf-8")
+)
+@click.option(
+    "--format",
+    required=False,
+    type=click.Choice(("JSON", "CSV"), case_sensitive=False),
+    default="JSON",
+    help="Format of output",
+)
+@click.pass_context
+def batch(ctx, input, fields, output, format):
+    """
+    Batch command for doing fast bulk processing.
+
+    :param input: A list of resources to lookup either IP addresses or ASNs. You could mix them however this could break output processing when writing to CSV
+    :param fields: A list of valid fields to extract from the individual responses
+    :param output: The path to write the results to
+    :param format: The format to write the results to. When using the CSV format it is required to provide fields.
+    """
+
+    if format == "CSV" and not fields:
+        print(
+            f'You need to specify a "--fields" argument with a list of fields to extract to get results in CSV. To get entire responses use JSON.',
+            file=stderr,
+        )
+        return
+
+    # Prepare requests
+    ipdata = IPData(ctx.obj["api-key"])
+    resources = [resource.strip() for resource in input.readlines()]
+    bulk_results = process(resources, ipdata.bulk, fields)
+
+    # Prepare CSV writing by expanding fieldnames eg. asn to asn, name, domain etc
+    csv_writer = None
+    fieldnames = []
+    for field in fields:
+        if field == "asn":
+            fieldnames += [
+                f"asn_{sub_field}"
+                for sub_field in ["asn", "name", "domain", "route", "type"]
+            ]
+            continue
+        if field == "company":
+            fieldnames += [
+                f"company_{sub_field}"
+                for sub_field in ["asn", "name", "domain", "network", "type"]
+            ]
+            continue
+        if field == "threat":
+            fieldnames += [
+                f"asn_{sub_field}"
+                for sub_field in [
+                    "is_tor",
+                    "is_icloud_relay",
+                    "is_proxy",
+                    "is_datacenter",
+                    "is_anonymous",
+                    "is_known_attacker",
+                    "is_known_abuser",
+                    "is_threat",
+                    "is_bogon",
+                    "blocklists",
+                ]
+            ]
+            continue
+        if field in ipdata.valid_fields:
+            fieldnames += [field]
+
+    # Do lookups concurrenctly using threads in batches of 100 each
+    with Progress() as progress:
+        # update progress bar
+        task = progress.add_task("[green]Processing...", total=len(resources))
+
+        # write individual results to file
+        for bulk_result in bulk_results:
+            for result in bulk_result.get("responses", {}):
+                progress.update(task, advance=1)
+                if format == "JSON":
+                    output.write(f"{result}\n")
+                if format == "CSV":
+                    if not csv_writer:
+                        # create writer if none exists
+                        csv_writer = csv.DictWriter(output, fieldnames=fieldnames)
+                        csv_writer.writeheader()
+
+                    # prepare row
+                    row = {}
+                    for field, value in result.items():
+                        if type(value) is dict:
+                            for k, v in result[field].items():
+                                row[f"{field}_{k}"] = v
+                        else:
+                            row[field] = value
+
+                    # ensure no unexpected fields
+                    try:
+                        # handle when dict fields are none eg. when asn, company or carrier are empty
+                        row_copy = row.copy()
+                        for key in row_copy:
+                            if key not in fieldnames:
+                                row.pop(key)
+
+                        # write results
+                        csv_writer.writerow(row)
+                    except ValueError as e:
+                        log.error(f"Error writing row: {row}. Error: {e}")
+
+
+@cli.command()
+@click.argument("feed", required=True, type=str)
+def validate(feed):
+    """
+    Validates a geofeed file.
+
+    :param feed: Either a valid URL (with the https:// path) or a file path
+    """
+    geofeed = Geofeed(feed)
+    valid = True
+    for entry in geofeed.entries():
+        if type(entry) is GeofeedValidationError:
+            log.error(entry)
+            valid = False
+        else:
+            try:
+                entry.validate()
+
+                # keep count of valid entries
+                geofeed.valid_count += 1
+            except GeofeedValidationError as e:
+                valid = False
+                log.error(e)
+
+    if geofeed.total_count == 0:
+        log.error(f"The provided geofeed is empty")
+
+    valid_percentage = geofeed.valid_count / geofeed.total_count * 100
+    print(
+        f"{geofeed.source} has {geofeed.valid_count:,} ({valid_percentage:.2f}%) valid entries."
+    )
+
+    if not valid:
+        sys.exit(1)
+
+    print(
+        "✨ Success! Your geofeed is valid and ready for publishing! Send an email to corrections@ipdata.co with the URL of this feed."
+    )
+
+
+if __name__ == "__main__":
+    cli()

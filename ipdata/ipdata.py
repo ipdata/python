@@ -1,100 +1,261 @@
-"""Call the https://api.ipdata.co API from Python."""
+"""This is the official IPData client library for Python.
+
+IPData client libraries allow for looking up the geolocation,
+ownership and threat profile or any IP address and ASN.
+
+Example:
+    >>> from ipdata import IPData
+    >>> ipdata = IPData("YOUR API KEY")
+    >>> ipdata.lookup() # or ipdata.lookup("8.8.8.8")
+
+Alternatively thanks to the convenience methods in __init__.py you can do
+
+Example
+    >>> import ipdata
+    >>> ipdata.api_key = <YOUR API KEY>
+    >>> ipdata.lookup() # or ipdata.lookup("8.8.8.8") 
+
+:class:`~.IPData` is the primary class for making API requests.
+"""
 
 import ipaddress
 import requests
+import logging
+
+from requests.adapters import HTTPAdapter, Retry
+from rich.logging import RichHandler
+
+FORMAT = "%(message)s"
+logging.basicConfig(
+    level="ERROR", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
+)
 
 
-class APIKeyNotSet(Exception):
+class IPDataException(Exception):
     pass
 
 
-class IncompatibleParameters(Exception):
-    pass
+class DotDict(dict):
+    """
+    dot.notation access to dictionary attributes
+    Based on https://stackoverflow.com/a/23689767/3176550
+    """
+
+    def __getattr__(*args):
+        val = dict.get(*args)
+        if type(val) is dict:
+            return DotDict(val)
+        elif type(val) is list:
+            return [DotDict(item) for item in val]
+        return val
+
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 
-class IPData:
-    base_url = 'https://api.ipdata.co/'
-    bulk_url = 'https://api.ipdata.co/bulk'
-    valid_fields = {'ip', 'is_eu', 'city', 'region', 'region_code', 'country_name', 'country_code', 'continent_name',
-                    'continent_code', 'latitude', 'longitude', 'asn', 'postal', 'calling_code', 'flag',
-                    'emoji_flag', 'emoji_unicode', 'carrier', 'languages', 'currency', 'time_zone', 'threat', 'count',
-                    'status', 'company'}
+class IPData(object):
+    """
+    Instances of IPData are used to make API requests. To make requests to the EU endpoint, set "endpoint" to "https://eu-api.ipdata.co".
 
-    def __init__(self, api_key):
-        if not api_key:
-            raise APIKeyNotSet("Missing API Key")
+    :param api_key: A valid IPData API key
+    :param endpoint: The API endpoint to send requests to
+    :param timeout: The default requests timeout
+    :param retry_limit: The maximum number of retries in case of failure
+    :param retry_backoff_factor: The number of seconds to sleep in between retries. With a 1 second backoff calls with be retried up to 7 times at the following intervals: 0.5, 1, 2, 4, 8, 16, 32
+    :param debug: A boolean used to set the log level. Set to True when debugging.
+    """
+
+    log = logging.getLogger("rich")
+
+    valid_fields = {
+        "ip",
+        "is_eu",
+        "city",
+        "region",
+        "region_code",
+        "country_name",
+        "country_code",
+        "continent_name",
+        "continent_code",
+        "latitude",
+        "longitude",
+        "asn",
+        "postal",
+        "calling_code",
+        "flag",
+        "emoji_flag",
+        "emoji_unicode",
+        "carrier",
+        "languages",
+        "currency",
+        "time_zone",
+        "threat",
+        "count",
+        "status",
+        "company",
+    }
+
+    def __init__(
+        self,
+        api_key,
+        endpoint="https://api.ipdata.co/",
+        timeout=60,
+        retry_limit=7,
+        retry_backoff_factor=1,
+        debug=False,
+    ):
+        # Request settings
         self.api_key = api_key
-        self.headers = {'user-agent': 'ipdata-pypi'}
+        self.endpoint = endpoint.rstrip("/")  # remove trailing /
+        self._timeout = timeout
+        self._headers = {"user-agent": "ipdata-python"}  # set default UserAgent
+        self._query_params = {"api-key": self.api_key}
 
-    def _validate_fields(self, select_field=None, fields=None):
-        if fields is None:
-            fields = []
+        # Enable debugging
+        if debug:
+            self.log.setLevel(logging.DEBUG)
 
-        if select_field and select_field not in self.valid_fields:
-            raise ValueError(f"{select_field} is not a valid field.")
-        if fields:
-            if not isinstance(fields, list):
-                raise ValueError('"fields" should be a list.')
-            for field in fields:
-                if field not in self.valid_fields:
-                    raise ValueError(f"{field} is not a valid field.")
+        # Retry settings
+        retries = Retry(
+            total=retry_limit,
+            backoff_factor=retry_backoff_factor,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["POST", "GET"],
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+
+        self._session = requests.Session()
+        self._session.mount("http", adapter)
+
+    def _validate_fields(self, fields):
+        """
+        Validates the fields passed in by the user, first ensuring it's a collection. In prior versions 'fields' was a string, however it now needs to be a collection.
+
+        :param fields: A collection of supported fields
+        :raises ValueError: if 'fields' is not one of ['list', 'tuple' or 'set'] or if 'fields' contains unsupported fields
+        """
+        if not type(fields) in [list, set, tuple]:
+            raise ValueError("'fields' must be of type 'list', 'tuple' or 'set'.")
+
+        # Get all unsupported fields
+        diff = set(fields).difference(self.valid_fields)
+        if diff:
+            raise ValueError(
+                f"The field(s) {diff} are not supported. Only {self.valid_fields} are supported."
+            )
 
     def _validate_ip_address(self, ip):
+        """
+        Checks that 'ip' is a valid IP Address.
+
+        :param ip: A string
+        :raises ValueError: if 'ip' is either not a valid IP address or is a reserved IP address eg. private, reserved or multicast
+        """
+        request_ip = ipaddress.ip_address(ip)
+        if request_ip.is_private or request_ip.is_reserved or request_ip.is_multicast:
+            raise ValueError(f"{ip} is a reserved IP Address")
+
+    def lookup(self, resource="", fields=[]):
+        """
+        Makes a GET request to the IPData API for the specified 'resource' and the given 'fields'.
+
+        :param resource: Either an IP address or an ASN prefixed by "AS" eg. "AS15169"
+        :param fields: A collection of API fields to be returned
+
+        :returns: An API response as a DotDict object to allow dot notation access of fields eg. data.ip, data.company.name, data.threat.blocklists[0].name etc
+
+        :raises IPDataException: if the API call fails or if there is a failure in decoding the response.
+        :raises ValueError: if 'resource' is not a string
+        """
+        if type(resource) is not str:
+            raise ValueError(f"{resource} must be of type 'str'")
+
+        resource = (
+            resource.upper()
+        )  # capitalize resource in case it's a typoed ASN query eg. as2
+
+        if resource and not resource.startswith("AS"):
+            self._validate_ip_address(resource)
+
+        self._validate_fields(fields)
+        query_params = self._query_params | {"fields": ",".join(fields)}
+
+        # Make the request
         try:
-            ipaddress.ip_address(ip)
-        except Exception:
-            raise
-        if ipaddress.ip_address(ip).is_private:
-            raise ValueError(f"{ip} is a private IP Address")
+            response = self._session.get(
+                f"{self.endpoint}/{resource}",
+                headers=self._headers,
+                params=query_params,
+                timeout=self._timeout,
+            )
+        except Exception as e:
+            raise IPDataException(e)
 
-    def lookup(self, ip=None, select_field=None, fields=None):
-        if fields is None:
-            fields = []
-
-        query = ""
-        query_params = {'api-key': self.api_key}
-        if ip:
-            self._validate_ip_address(ip)
-            query += f"{ip}/"
-        if select_field and fields:
-            raise IncompatibleParameters(
-                "The \"select_field\" and \"fields\" parameters cannot be used at the same time.")
-        if select_field:
-            self._validate_fields(select_field=select_field)
-            query += f"{select_field}/"
-        if fields:
-            self._validate_fields(fields=fields)
-            query_params['fields'] = ','.join(fields)
-        response = requests.get(f"{self.base_url}{query}", headers=self.headers, params=query_params)
         status_code = response.status_code
-        if select_field and status_code == 200:
-            try:
-                response = {select_field: response.json(), 'status': status_code}
-                return response
-            except Exception:
-                response = {select_field: response.text, 'status': status_code}
-                return response
-        response = response.json()
-        response['status'] = status_code
-        return response
 
-    def bulk_lookup(self, ips=None, fields=None):
-        if ips is None:
-            ips = []
-        if fields is None:
-            fields = []
+        # Decode the response and add metadata
+        try:
+            data = DotDict(response.json())
+            data["status"] = status_code
+        except ValueError:
+            raise IPDataException(
+                f"An error occured while decoding the API response: {response.text}"
+            )
 
-        query_params = {'api-key': self.api_key}
-        if len(ips) < 2:
-            raise ValueError('Bulk Lookup requires more than 1 IP Address in the payload.')
-        if fields:
-            self._validate_fields(fields=fields)
-            query_params['fields'] = ','.join(fields)
-        response = requests.post(f"{self.bulk_url}", headers=self.headers, params=query_params, json=ips)
+        return data
+
+    def bulk(self, resources, fields=[]):
+        """
+        Lookup up to 100 resources in one request. Makes a POST request wth the resources as a JSON array and the specified fields.
+
+        :param resources: A list of resources. This can be a list of IP addresses or ASNs or a mix of both which is not recommended unless you handle it during parsing. Mixing resources might lead to weird behavior when writing results to CSV.
+        :param fields: A collection of API fields to be returned.
+
+        :returns: A DotDict object with the data contained under the 'responses' key.
+
+        :raises ValueError: if resources it not a collection
+        :raises ValueError: if resources contains 0 items
+        :raises IPDataException: if the API call fails or if there is an error decoding the response
+        """
+
+        if type(resources) not in [list, set]:
+            raise ValueError(f"{resources} must be of type 'list' or 'set'")
+
+        if len(resources) < 1:
+            raise ValueError("Bulk lookups must contain at least 1 resource.")
+
+        self._validate_fields(fields)
+        query_params = self._query_params | {"fields": ",".join(fields)}
+
+        # Make the requests
+        try:
+            response = self._session.post(
+                f"{self.endpoint}/bulk",
+                headers=self._headers,
+                params=query_params,
+                json=resources,
+            )
+        except Exception as e:
+            raise IPDataException(f"Error when looking up {resources} - {e}")
+
         status_code = response.status_code
+
+        # Decode the response
+        try:
+            data = response.json()
+        except ValueError:
+            raise IPDataException(
+                f"An error occured while decoding the API response: {response.text}"
+            )
+
+        # If the request returned a non 200 response we add metadata and return the response
         if not status_code == 200:
-            response = response.json()
-            response['status'] = status_code
-            return response
-        response = {'responses': response.json(), 'status': status_code}
-        return response
+            data["status"] = status_code
+            return data
+
+        return DotDict(
+            {
+                "responses": [DotDict(resource) for resource in data],
+                "status": status_code,
+            }
+        )
