@@ -6,4 +6,3 @@ pyperclip
 pytest
 hypothesis
 python-dotenv
-mmh3

@@ -1,14 +1,14 @@
 """
     Geofeeds classes used in the CLI for the validator.
 """
-import requests
-import mmh3
 import csv
+import hashlib
 import ipaddress
-import json
 import logging
-
+import random
 from pathlib import Path
+
+import requests
 from rich.logging import RichHandler
 
 from .codes import COUNTRIES, REGION_CODES
@@ -49,10 +49,8 @@ class Geofeed(object):
 
         :raises Exception: if a failure occurs when downloading the geofeed
         """
-        url_hash = mmh3.hash(
-            self.source, 42, signed=False
-        )  # 42 is the seed so that we get the same hashes on different devices, signed is so that we don't get a negative number
-        cache_path = f"{pwd}/{self.dir}/{url_hash}.csv"
+        random_name = hashlib.sha224( str(random.getrandbits(256)).encode('utf-8') ).hexdigest()[:16]
+        cache_path = f"{pwd}/{self.dir}/{random_name}.csv"
 
         try:
             response = requests.get(self.source, timeout=60)
