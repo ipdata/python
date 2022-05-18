@@ -344,7 +344,10 @@ def process(resources, processor, fields):
 @click.argument("input", required=True, type=click.File(mode="r", encoding="utf-8"))
 @click.option(
     "--fields", "-f", required=False, multiple=True
-)  # TODO: add list of supported fields
+)
+@click.option(
+    "--exclude", "-e", required=False, multiple=True, default=[],
+)
 @click.option(
     "--output", "-o", required=True, type=click.File(mode="w", encoding="utf-8")
 )
@@ -356,7 +359,7 @@ def process(resources, processor, fields):
     help="Format of output",
 )
 @click.pass_context
-def batch(ctx, input, fields, output, format):
+def batch(ctx, input, fields, output, format, exclude):
     """
     Batch command for doing fast bulk processing.
 
@@ -372,6 +375,15 @@ def batch(ctx, input, fields, output, format):
             file=stderr,
         )
         return
+
+    # enforce mutual exclusivity of fields and exclude
+    if exclude and fields:
+        raise click.ClickException("'--fields / -f' and '--exclude / -e' are mutually exclusive.")
+
+    # if the user wants to exclude some fields, get all the fields in fields that are not in exclude
+    if exclude:
+        fields = set(ipdata.valid_fields).difference(set(exclude))
+
 
     # Prepare requests
     ipdata = IPData(ctx.obj["api-key"])
