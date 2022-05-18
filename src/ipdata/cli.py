@@ -356,7 +356,7 @@ def process(resources, processor, fields):
     required=False,
     type=click.Choice(("JSON", "CSV"), case_sensitive=False),
     default="JSON",
-    help="File format for output",
+    help="Output file format",
 )
 @click.pass_context
 def batch(ctx, input, fields, output, format, exclude):
