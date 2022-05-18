@@ -88,7 +88,7 @@ def _lookup(ipdata, *args, **kwargs):
     try:
         response = ipdata.lookup(*args, **kwargs)
     except Exception as e:
-        log.error(f"Error during lookup: {e}")
+        log.error(e)
     else:
         return response
 

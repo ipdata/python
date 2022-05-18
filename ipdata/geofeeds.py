@@ -11,7 +11,7 @@ from pathlib import Path
 import requests
 from rich.logging import RichHandler
 
-from .codes import COUNTRIES, REGION_CODES
+from codes import COUNTRIES, REGION_CODES
 
 FORMAT = "%(message)s"
 logging.basicConfig(
