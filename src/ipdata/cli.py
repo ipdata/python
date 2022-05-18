@@ -248,8 +248,11 @@ def usage(ctx, api_key):
 @cli.command(default=True)
 @click.argument("resource", required=False, type=str, default="")
 @click.option(
-    "--fields", "-f", required=False, multiple=True
-)  # TODO: add list of supported fields
+    "--fields", "-f", required=False, multiple=True, default=[],
+)
+@click.option(
+    "--exclude", "-e", required=False, multiple=True, default=[],
+)
 @click.option("--api-key", "-k", required=False, default=None, help="ipdata API Key")
 @click.option(
     "--pretty-print",
@@ -276,7 +279,7 @@ def usage(ctx, api_key):
     help="Copy the result to the clipboard",
 )
 @click.pass_context
-def lookup(ctx, resource, fields, api_key, pretty_print, raw, copy):
+def lookup(ctx, resource, fields, api_key, pretty_print, raw, copy, exclude):
     """
     Lookup resources by using the IPData class methods.
 
@@ -289,6 +292,14 @@ def lookup(ctx, resource, fields, api_key, pretty_print, raw, copy):
     """
     api_key = api_key if api_key else ctx.obj["api-key"]
     ipdata = IPData(api_key)
+
+    # enforce mutual exclusivity of fields and exclude
+    if exclude and fields:
+        raise click.ClickException("'--fields / -f' and '--exclude / -e' are mutually exclusive.")
+
+    # if the user wants to exclude some fields, get all the fields in fields that are not in exclude
+    if exclude:
+        fields = set(ipdata.valid_fields).difference(set(exclude))
 
     with console.status(
         f"""Looking up {resource if resource else "this device's IP address"}""",
