@@ -50,7 +50,7 @@ class Geofeed(object):
         :raises Exception: if a failure occurs when downloading the geofeed
         """
         random_name = hashlib.sha224( str(random.getrandbits(256)).encode('utf-8') ).hexdigest()[:16]
-        cache_path = f"{pwd}/{self.dir}/{random_name}.csv"
+        cache_path = f"{self.dir}/{random_name}.csv"
 
         try:
             response = requests.get(self.source, timeout=60)
@@ -82,11 +82,10 @@ class Geofeed(object):
         if "://" in self.source and not self.cache_path:
             self._download()
             path = self.cache_path
-
-        # if path still contains a url it means the download was not successful in which case we yield nothing!
-        if "://" in path:
-            log.warning(f"No entries found {self.source}")
-            yield
+            # if path still contains a url it means the download was not successful in which case we yield nothing!
+            if not path:
+                log.warning(f"No entries found {self.source}")
+                return
 
         with open(path) as f:
             reader = csv.reader(f)
@@ -99,6 +98,7 @@ class Geofeed(object):
                     yield GeofeedValidationError(
                         f"[{entry}] is not a valid geofeed entry. The 'IP Range' and 'Country' fields are required however you must have the requisite minimum number of commas (currently 4) present"
                     )
+                    return
 
                 # instantiate an Entry object
                 geofeed_entry = Entry(*entry)
@@ -108,12 +108,15 @@ class Geofeed(object):
                     yield GeofeedValidationError(
                         f"Duplicate prefixes found {geofeed_entry.ip_range}"
                     )
+                    return
 
                 self.prefixes.add(geofeed_entry.ip_range)
 
                 # generate entry
                 yield geofeed_entry
 
+    def __iter__(self):
+        yield from self.entries()
 
 class Entry(object):
     """

@@ -248,10 +248,18 @@ def usage(ctx, api_key):
 @cli.command(default=True)
 @click.argument("resource", required=False, type=str, default="")
 @click.option(
-    "--fields", "-f", required=False, multiple=True, default=[],
+    "--fields",
+    "-f",
+    required=False,
+    multiple=True,
+    default=[],
 )
 @click.option(
-    "--exclude", "-e", required=False, multiple=True, default=[],
+    "--exclude",
+    "-e",
+    required=False,
+    multiple=True,
+    default=[],
 )
 @click.option("--api-key", "-k", required=False, default=None, help="ipdata API Key")
 @click.option(
@@ -295,7 +303,9 @@ def lookup(ctx, resource, fields, api_key, pretty_print, raw, copy, exclude):
 
     # enforce mutual exclusivity of fields and exclude
     if exclude and fields:
-        raise click.ClickException("'--fields / -f' and '--exclude / -e' are mutually exclusive.")
+        raise click.ClickException(
+            "'--fields / -f' and '--exclude / -e' are mutually exclusive."
+        )
 
     # if the user wants to exclude some fields, get all the fields in fields that are not in exclude
     if exclude:
@@ -342,11 +352,13 @@ def process(resources, processor, fields):
 
 @cli.command()
 @click.argument("input", required=True, type=click.File(mode="r", encoding="utf-8"))
+@click.option("--fields", "-f", required=False, multiple=True)
 @click.option(
-    "--fields", "-f", required=False, multiple=True
-)
-@click.option(
-    "--exclude", "-e", required=False, multiple=True, default=[],
+    "--exclude",
+    "-e",
+    required=False,
+    multiple=True,
+    default=[],
 )
 @click.option(
     "--output", "-o", required=True, type=click.File(mode="w", encoding="utf-8")
@@ -378,12 +390,13 @@ def batch(ctx, input, fields, output, format, exclude):
 
     # enforce mutual exclusivity of fields and exclude
     if exclude and fields:
-        raise click.ClickException("'--fields / -f' and '--exclude / -e' are mutually exclusive.")
+        raise click.ClickException(
+            "'--fields / -f' and '--exclude / -e' are mutually exclusive."
+        )
 
     # if the user wants to exclude some fields, get all the fields in fields that are not in exclude
     if exclude:
         fields = set(ipdata.valid_fields).difference(set(exclude))
-
 
     # Prepare requests
     ipdata = IPData(ctx.obj["api-key"])

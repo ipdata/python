@@ -22,6 +22,7 @@ import ipaddress
 import requests
 import logging
 import urllib3
+import functools
 
 from requests.adapters import HTTPAdapter, Retry
 from rich.logging import RichHandler
@@ -135,6 +136,7 @@ class IPData(object):
         self._session = requests.Session()
         self._session.mount("http", adapter)
 
+    @functools.lru_cache(maxsize=100)
     def _validate_fields(self, fields):
         """
         Validates the fields passed in by the user, first ensuring it's a collection. In prior versions 'fields' was a string, however it now needs to be a collection.
@@ -152,6 +154,7 @@ class IPData(object):
                 f"The field(s) {diff} are not supported. Only {self.valid_fields} are supported."
             )
 
+    @functools.lru_cache(maxsize=100)
     def _validate_ip_address(self, ip):
         """
         Checks that 'ip' is a valid IP Address.
@@ -163,6 +166,7 @@ class IPData(object):
         if request_ip.is_private or request_ip.is_reserved or request_ip.is_multicast:
             raise ValueError(f"{ip} is a reserved IP Address")
 
+    @functools.lru_cache(maxsize=100)
     def lookup(self, resource="", fields=[]):
         """
         Makes a GET request to the IPData API for the specified 'resource' and the given 'fields'.
@@ -212,6 +216,7 @@ class IPData(object):
 
         return data
 
+    @functools.lru_cache(maxsize=100)
     def bulk(self, resources, fields=[]):
         """
         Lookup up to 100 resources in one request. Makes a POST request wth the resources as a JSON array and the specified fields.
