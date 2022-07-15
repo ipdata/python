@@ -35,12 +35,9 @@ Replace `test` with your API Key in the following examples.
 You can look up the calling IP address, that is, the IP address of the computer you are running this on by not passing an IP address to the `lookup` method.
 
 ```
-from ipdata import ipdata
-from pprint import pprint
-# Create an instance of an ipdata object. Replace `test` with your API Key
-ipdata = ipdata.IPData('test')
-response = ipdata.lookup()
-pprint(response)
+>>> import ipdata
+>>> ipdata.api_key = <YOUR API KEY>
+>>> ipdata.lookup()
 ```
 
 ### Looking up any IP Address
@@ -48,11 +45,10 @@ pprint(response)
 You can look up any valid IPv4 or IPv6 address by passing it to the `lookup` method.
 
 ```
-from ipdata import ipdata
-from pprint import pprint
-# Create an instance of an ipdata object. Replace `test` with your API Key
-ipdata = ipdata.IPData('test')
-response = ipdata.lookup('69.78.70.144')
+>>> from rich import pprint
+>>> import ipdata
+>>> ipdata.api_key = <YOUR API KEY>
+>>> response = ipdata.lookup('69.78.70.144')
 pprint(response)
 ```
 

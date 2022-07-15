@@ -14,7 +14,7 @@ endpoint = None
 default_client = None
 
 
-def lookup(resource, fields=[]):
+def lookup(resource="", fields=[]):
     return _proxy("lookup", resource=resource, fields=fields)
 
 
