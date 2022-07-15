@@ -380,7 +380,7 @@ You can also pass the `--api-key <API Key>` parameter to any command to specify 
 
 ### Look up your own IP address
 
-Running the `ipdata` command without any parameters will look up the IP address of the computer you are running the command on. Alternatively you can explicitly look up your own IP address by running `ipdata me`.
+Running the `ipdata` command without any parameters will look up the IP address of the computer you are running the command on. Alternatively you can explicitly look up your own IP address by running `ipdata`.
 
 
 ```shell
