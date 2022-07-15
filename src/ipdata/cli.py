@@ -23,7 +23,7 @@ copying a result to the clipboard with '-c', pretty printing results in easy to 
     $ ipdata
     Your IP
 
-    $ ipdata 1.1.1.1 -f ip -f country_name
+    $ ipdata 1.1.1.1 -f ip -f asn
     {
       "ip": "1.1.1.1",
       "asn": {
@@ -489,7 +489,7 @@ def validate(feed):
     """
     geofeed = Geofeed(feed)
     valid = True
-    for entry in geofeed.entries():
+    for entry in geofeed:
         if type(entry) is GeofeedValidationError:
             log.error(entry)
             valid = False

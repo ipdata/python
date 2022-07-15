@@ -84,7 +84,7 @@ class Geofeed(object):
             path = self.cache_path
             # if path still contains a url it means the download was not successful in which case we yield nothing!
             if not path:
-                log.warning(f"No entries found {self.source}")
+                log.warning(f"No cache path for {self.source} found. Download likely failed.")
                 return
 
         with open(path) as f:
