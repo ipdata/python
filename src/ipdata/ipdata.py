@@ -18,6 +18,7 @@ Example
 :class:`~.IPData` is the primary class for making API requests.
 """
 
+import os
 import ipaddress
 import requests
 import logging
@@ -99,13 +100,15 @@ class IPData(object):
 
     def __init__(
         self,
-        api_key,
+        api_key=os.environ.get("IPDATA_API_KEY"),
         endpoint="https://api.ipdata.co/",
         timeout=60,
         retry_limit=7,
         retry_backoff_factor=1,
         debug=False,
     ):
+        if not api_key:
+            raise IPDataException("API Key not set. Set an API key via the 'IPDATA_API_KEY' environment variable or see the docs for other ways to do so.")
         # Request settings
         self.api_key = api_key
         self.endpoint = endpoint.rstrip("/")  # remove trailing /
