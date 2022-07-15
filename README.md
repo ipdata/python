@@ -45,7 +45,6 @@ You can look up the calling IP address, that is, the IP address of the computer 
 You can look up any valid IPv4 or IPv6 address by passing it to the `lookup` method.
 
 ```python
->>> from rich import pprint
 >>> import ipdata
 >>> ipdata.api_key = "<YOUR API KEY>"
 >>> response = ipdata.lookup('69.78.70.144')
@@ -343,7 +342,7 @@ pip install ipdata
 ### Available commands
 
 ```shell
-➜ ipdata --help
+ipdata --help
 Usage: ipdata [OPTIONS] COMMAND [ARGS]...
 
   Welcome to the ipdata CLI
@@ -366,7 +365,7 @@ Commands:
 You need a valid API key from ipdata to use the cli. You can get a free key by [Signing up here](https://ipdata.co/sign-up.html).
 
 ```shell
-➜ ipdata init <API Key>
+ipdata init <API Key>
  _           _       _
 (_)_ __   __| | __ _| |_ __ _
 | | '_ \ / _` |/ _` | __/ _` |
@@ -385,7 +384,7 @@ Running the `ipdata` command without any parameters will look up the IP address 
 
 
 ```shell
-➜ ipdata
+ipdata
 ```
 
 To pretty print the result pass the `-p` flag
@@ -429,7 +428,7 @@ To pretty print the result pass the `-p` flag
 You can pass any valid IPv4 or IPv6 address to the `ipdata` command to look it up. In case an invalid value is passed you will get the error `ERROR    'BLEH' does not appear to be an IPv4 or IPv6 address"`.
 
 ```shell
-➜ ipdata 8.8.8.8
+ipdata 8.8.8.8
 ```
 
 ### Copying results to clipboard
@@ -437,7 +436,7 @@ You can pass any valid IPv4 or IPv6 address to the `ipdata` command to look it u
 Use `-c` to copy the results to the clipboard!
 
 ```
-➜ ipdata 1.1.1.1 -f ip -f asn -c 
+ipdata 1.1.1.1 -f ip -f asn -c 
 📋️ Copied result to clipboard!  
 ```
 
@@ -446,13 +445,13 @@ Use `-c` to copy the results to the clipboard!
 Use `--fields` to filter the responses 
 
 ```shell
-➜ ipdata --fields city --fields country_name'
+ipdata --fields city --fields country_name'
 ```
 
 or use `-f`
 
 ```shell
-➜ ipdata 1.1.1.1 -f ip -f asn
+ipdata 1.1.1.1 -f ip -f asn
 ```
 
 ```json
@@ -517,13 +516,13 @@ The validation closely follows https://datatracker.ietf.org/doc/html/draft-googl
 You can provide either a url or a path to a local file.
 
 ```shell
-➜ ipdata validate https://example.com/geofeed.txt
+ipdata validate https://example.com/geofeed.txt
 ```
 
 or 
 
 ```shell
-➜ ipdata validate geofeed.txt
+ipdata validate geofeed.txt
 ```
 
 ## Errors
