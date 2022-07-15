@@ -508,19 +508,6 @@ The `--fields` option is required to use CSV output.
 
 A list of all the fields returned by the API is maintained at [Response Fields](https://docs.ipdata.co/api-reference/response-fields)
 
-## Errors
-
-A list of possible errors is available at [Status Codes](https://docs.ipdata.co/api-reference/status-codes)
-
-
-## Tests
-
-To run all tests
-
-```shell
-pytest
-```
-
 ## Geofeed tools
 
 Geofeed publishers can use the `ipdata validate` command to validate their geofeeds before submission to ipdata. This will catch most but not all issues that might cause processing your geofeed to fail.
@@ -537,4 +524,17 @@ or
 
 ```shell
 ➜ ipdata validate geofeed.txt
+```
+
+## Errors
+
+A list of possible errors is available at [Status Codes](https://docs.ipdata.co/api-reference/status-codes)
+
+
+## Tests
+
+To run all tests
+
+```shell
+pytest
 ```
