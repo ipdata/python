@@ -10,7 +10,7 @@ from .ipdata import IPData
 
 # Configuration
 api_key = None
-endpoint = None
+endpoint = "https://api.ipdata.co/"
 default_client = None
 
 
@@ -28,6 +28,7 @@ def _proxy(method, *args, **kwargs):
     if not default_client:
         default_client = IPData(
             api_key,
+            endpoint
         )
 
     fn = getattr(default_client, method)

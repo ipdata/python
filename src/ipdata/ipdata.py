@@ -209,6 +209,8 @@ class IPData(object):
         try:
             data = DotDict(response.json())
             data["status"] = status_code
+            if "eu-api" in self.endpoint:
+                data["endpoint"] = "EU"
         except ValueError:
             raise IPDataException(
                 f"An error occured while decoding the API response: {response.text}"
@@ -265,9 +267,12 @@ class IPData(object):
             data["status"] = status_code
             return data
 
-        return DotDict(
+        result = DotDict(
             {
                 "responses": [DotDict(resource) for resource in data],
                 "status": status_code,
             }
         )
+        if "eu-api" in self.endpoint:
+            result["endpoint"] = "EU"
+        return result
