@@ -449,7 +449,7 @@ def batch(ctx, input, fields, output, format, exclude):
             for result in bulk_result.get("responses", {}):
                 progress.update(task, advance=1)
                 if format == "JSON":
-                    output.write(f"{result}\n")
+                    output.write(f"{json.dumps(result)}\n")
                 if format == "CSV":
                     if not csv_writer:
                         # create writer if none exists
