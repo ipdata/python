@@ -1,4 +1,4 @@
-[![PyPI version](https://badge.fury.io/py/ipdata.svg)](https://badge.fury.io/py/ipdata) ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/ipdata/python/Test%20and%20Publish%20ipdata%20to%20PyPI)
+[![PyPI version](https://badge.fury.io/py/ipdata.svg)](https://badge.fury.io/py/ipdata) ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ipdata/python/python-publish.yml?branch=master)
 
 # Official Python client library and CLI for the ipdata API
 
