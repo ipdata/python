@@ -403,7 +403,7 @@ def batch(ctx, input, fields, output, format, exclude):
     resources = [resource.strip() for resource in input.readlines()]
     bulk_results = process(resources, ipdata.bulk, fields)
 
-    # Prepare CSV writing by expanding fieldnames eg. asn to asn, name, domain etc
+    # Prepare CSV writing by expanding fieldnames eg. asn to [asn, name, domain] etc
     csv_writer = None
     fieldnames = []
     for field in fields:
@@ -413,15 +413,15 @@ def batch(ctx, input, fields, output, format, exclude):
                 for sub_field in ["asn", "name", "domain", "route", "type"]
             ]
             continue
-        if field == "company":
+        elif field == "company":
             fieldnames += [
                 f"company_{sub_field}"
-                for sub_field in ["asn", "name", "domain", "network", "type"]
+                for sub_field in ["name", "domain", "network", "type"]
             ]
             continue
-        if field == "threat":
+        elif field == "threat":
             fieldnames += [
-                f"asn_{sub_field}"
+                f"threat_{sub_field}"
                 for sub_field in [
                     "is_tor",
                     "is_icloud_relay",
@@ -436,7 +436,7 @@ def batch(ctx, input, fields, output, format, exclude):
                 ]
             ]
             continue
-        if field in ipdata.valid_fields:
+        elif field in ipdata.valid_fields:
             fieldnames += [field]
 
     # Do lookups concurrenctly using threads in batches of 100 each
