@@ -1,5 +1,7 @@
 [![PyPI version](https://badge.fury.io/py/ipdata.svg)](https://badge.fury.io/py/ipdata) ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ipdata/python/python-publish.yml?branch=master)
 
+> **🎉 Introducing IPTrie** — A fast, type-safe data structure for IP lookups with longest-prefix matching. Supports both IPv4 and IPv6. [Learn more →](#iptrie)
+
 # Official Python client library and CLI for the ipdata API
 
 This is a Python client and command line interface (CLI) for the [ipdata.co](https://ipdata.co) IP Geolocation API. ipdata offers a fast, highly-available API to enrich IP Addresses with Location, Company, Threat Intelligence and numerous other data attributes.
@@ -9,6 +11,43 @@ Note that you need an API Key to use this package. You can get a free one with a
 Visit our [Documentation](https://docs.ipdata.co/) for more examples and tutorials.
 
 [![asciicast](https://asciinema.org/a/371292.svg)](https://asciinema.org/a/371292)
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Library Usage](#library-usage)
+  - [Looking up the calling IP Address](#looking-up-the-calling-ip-address)
+  - [Looking up any IP Address](#looking-up-any-ip-address)
+  - [Getting only one field](#getting-only-one-field)
+  - [Getting a number of specific fields](#getting-a-number-of-specific-fields)
+  - [Bulk Lookups](#bulk-lookups)
+- [Using the ipdata CLI](#using-the-ipdata-cli)
+  - [Windows Installation Notes](#windows-installation-notes)
+  - [Available commands](#available-commands)
+  - [Initialize the cli with your API Key](#initialize-the-cli-with-your-api-key)
+  - [Look up your own IP address](#look-up-your-own-ip-address)
+  - [Look up any IP address](#look-up-any-ip-address-1)
+  - [Copying results to clipboard](#copying-results-to-clipboard)
+  - [Filtering results by a list of fields](#filtering-results-by-a-list-of-fields)
+  - [Batch lookup](#batch-lookup)
+  - [Available Fields](#available-fields)
+- [Geofeed tools](#geofeed-tools)
+- [IPTrie](#iptrie)
+  - [Features](#features)
+  - [Quick Start](#quick-start)
+  - [IPv6 Support](#ipv6-support)
+  - [Use Cases](#use-cases)
+    - [Network Classification](#network-classification)
+    - [GeoIP Lookup](#geoip-lookup)
+    - [Access Control Lists](#access-control-lists)
+  - [API Reference](#api-reference)
+    - [Constructor](#constructor)
+    - [Methods](#methods)
+    - [Exceptions](#exceptions)
+  - [Input Validation](#input-validation)
+  - [Performance](#performance)
+- [Errors](#errors)
+- [Tests](#tests)
 
 ## Installation
 
@@ -524,6 +563,176 @@ or
 ```shell
 ipdata validate geofeed.txt
 ```
+
+## IPTrie
+
+IPTrie is a production-ready, type-safe trie for IP addresses and CIDR prefixes with longest-prefix matching.
+
+### Features
+
+- **Dual-stack support**: Handles both IPv4 and IPv6 addresses seamlessly
+- **Longest-prefix matching**: Automatically finds the most specific matching prefix
+- **Type-safe**: Full generic type support with comprehensive type hints
+- **Pythonic API**: Familiar dictionary-like interface (`[]`, `in`, `del`, `len`, iteration)
+- **Input validation**: Robust validation using Python's `ipaddress` module
+- **Custom exceptions**: Clear, specific exceptions for better error handling
+- **Well-tested**: Comprehensive test suite with edge cases covered
+
+### Quick Start
+
+```python
+from ipdata import IPTrie
+
+# Create an IPTrie with string values
+ip_trie: IPTrie[str] = IPTrie()
+
+# Add network prefixes
+ip_trie["10.0.0.0/8"] = "class-a-private"
+ip_trie["10.1.0.0/16"] = "datacenter"
+ip_trie["10.1.1.0/24"] = "web-servers"
+
+# Longest-prefix matching
+print(ip_trie["10.1.1.100"])  # "web-servers"
+print(ip_trie["10.1.2.100"])  # "datacenter"
+print(ip_trie["10.2.0.1"])    # "class-a-private"
+
+# Check membership
+print("10.1.1.50" in ip_trie)  # True
+print("192.168.1.1" in ip_trie)  # False
+
+# Get the matching prefix
+print(ip_trie.parent("10.1.1.100"))  # "10.1.1.0/24"
+
+# Safe access with default
+print(ip_trie.get("8.8.8.8", "unknown"))  # "unknown"
+```
+
+### IPv6 Support
+
+```python
+ip_trie: IPTrie[str] = IPTrie()
+
+ip_trie["2001:db8::/32"] = "documentation"
+ip_trie["2001:db8:1::/48"] = "specific-block"
+
+print(ip_trie["2001:db8:1::1"])  # "specific-block"
+print(ip_trie["2001:db8:2::1"])  # "documentation"
+```
+
+### Use Cases
+
+#### Network Classification
+
+```python
+from ipdata import IPTrie
+
+classifier: IPTrie[dict] = IPTrie()
+classifier["10.0.0.0/8"] = {"type": "private", "rfc": "1918"}
+classifier["172.16.0.0/12"] = {"type": "private", "rfc": "1918"}
+classifier["192.168.0.0/16"] = {"type": "private", "rfc": "1918"}
+classifier["0.0.0.0/0"] = {"type": "public", "rfc": None}
+
+def classify_ip(ip: str) -> dict:
+    return classifier.get(ip, {"type": "unknown"})
+
+print(classify_ip("192.168.1.100"))  # {"type": "private", "rfc": "1918"}
+print(classify_ip("8.8.8.8"))        # {"type": "public", "rfc": None}
+```
+
+#### GeoIP Lookup
+
+```python
+from ipdata import IPTrie
+
+geo_db: IPTrie[str] = IPTrie()
+geo_db["8.8.8.0/24"] = "US"
+geo_db["1.1.1.0/24"] = "AU"
+
+def get_country(ip: str) -> str:
+    return geo_db.get(ip, "Unknown")
+```
+
+#### Access Control Lists
+
+```python
+from ipdata import IPTrie
+
+acl: IPTrie[bool] = IPTrie()
+acl["192.168.1.0/24"] = True   # Allow internal
+acl["10.0.0.0/8"] = True       # Allow VPN
+acl["0.0.0.0/0"] = False       # Deny all others
+
+def is_allowed(ip: str) -> bool:
+    return acl.get(ip, False)
+```
+
+### API Reference
+
+#### Constructor
+
+```python
+IPTrie[T]()  # Create an empty IPTrie with value type T
+```
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `__setitem__(key, value)` | Set value for IP/prefix |
+| `__getitem__(key)` | Get value using longest-prefix match (raises `KeyNotFoundError`) |
+| `get(key, default=None)` | Get value or default if not found |
+| `__delitem__(key)` | Delete exact prefix |
+| `__contains__(key)` | Check if IP matches any prefix |
+| `has_key(key)` | Check if exact prefix exists |
+| `parent(key)` | Get the longest matching prefix string |
+| `children(key)` | Get all more specific prefixes |
+| `__len__()` | Count of all prefixes |
+| `__iter__()` | Iterate over all prefixes |
+| `keys()` | Iterator over prefixes |
+| `values()` | Iterator over values |
+| `items()` | Iterator over (prefix, value) tuples |
+| `clear()` | Remove all entries |
+
+#### Exceptions
+
+| Exception | Description |
+|-----------|-------------|
+| `IPTrieError` | Base exception class |
+| `InvalidIPError` | Invalid IP address or network format |
+| `KeyNotFoundError` | No matching prefix found (also a `KeyError`) |
+
+### Input Validation
+
+IPTrie validates all inputs using Python's `ipaddress` module:
+
+```python
+from ipdata import IPTrie, InvalidIPError
+
+ip_trie: IPTrie[str] = IPTrie()
+
+# These work
+ip_trie["192.168.1.0/24"] = "valid"
+ip_trie["2001:db8::1"] = "valid"
+
+# These raise InvalidIPError
+try:
+    ip_trie["not-an-ip"] = "invalid"
+except InvalidIPError as e:
+    print(f"Error: {e}")
+
+try:
+    ip_trie[""] = "empty"
+except InvalidIPError as e:
+    print(f"Error: {e}")
+```
+
+### Performance
+
+IPTrie uses Patricia tries (via `pytricia`) internally, providing:
+
+- **O(k)** lookup time where k is the prefix length (32 for IPv4, 128 for IPv6)
+- **Memory efficient** storage of overlapping prefixes
+- **Fast iteration** over all prefixes
 
 ## Errors
 

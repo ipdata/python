@@ -7,6 +7,7 @@
         >>> ipdata.lookup() # or ipdata.lookup("8.8.8.8") 
 """
 from .ipdata import IPData
+from .iptrie import IPTrie
 
 # Configuration
 api_key = None

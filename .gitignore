@@ -10,3 +10,5 @@ __pycache__/
 *.pyc
 .hypothesis/
 .vscode/
+.pytest_cache/
+.venv/

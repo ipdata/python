@@ -6,3 +6,4 @@ pyperclip
 pytest
 hypothesis
 python-dotenv
+pytricia
