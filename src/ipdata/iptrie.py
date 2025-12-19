@@ -16,6 +16,7 @@ Example:
 from __future__ import annotations
 
 import ipaddress
+import socket
 from collections.abc import Iterator
 from typing import TypeVar, Generic
 
@@ -41,20 +42,7 @@ class KeyNotFoundError(IPTrieError, KeyError):
 
     pass
 
-
 def _normalize_ip_key(key: str) -> tuple[str, bool]:
-    """
-    Validate and normalize an IP address or network string.
-
-    Args:
-        key: An IP address or CIDR notation string.
-
-    Returns:
-        A tuple of (normalized_key, is_ipv6).
-
-    Raises:
-        InvalidIPError: If the key is not a valid IP address or network.
-    """
     if not isinstance(key, str):
         raise InvalidIPError(f"Key must be a string, got {type(key).__name__}")
 
@@ -62,15 +50,19 @@ def _normalize_ip_key(key: str) -> tuple[str, bool]:
     if not key:
         raise InvalidIPError("Key cannot be empty")
 
+    addr = key.rsplit("/", 1)[0] if "/" in key else key
+
     try:
-        if "/" in key:
-            network = ipaddress.ip_network(key, strict=False)
-            return str(network), isinstance(network, ipaddress.IPv6Network)
-        else:
-            address = ipaddress.ip_address(key)
-            return str(address), isinstance(address, ipaddress.IPv6Address)
-    except ValueError as e:
-        raise InvalidIPError(f"Invalid IP address or network: {key!r}") from e
+        socket.inet_pton(socket.AF_INET, addr)
+        return key, False
+    except socket.error:
+        pass
+
+    try:
+        socket.inet_pton(socket.AF_INET6, addr)
+        return key, True
+    except socket.error:
+        raise InvalidIPError(f"Invalid IP address or network: {key!r}")
 
 
 class IPTrie(Generic[T]):
