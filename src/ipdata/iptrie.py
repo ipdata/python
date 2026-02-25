@@ -16,7 +16,6 @@ Example:
 from __future__ import annotations
 
 import ipaddress
-import socket
 from collections.abc import Iterator
 from typing import TypeVar, Generic
 
@@ -53,18 +52,14 @@ def _normalize_ip_key(key: str) -> tuple[str, bool]:
     if not key:
         raise InvalidIPError("Key cannot be empty")
 
-    addr = key.rsplit("/", 1)[0] if "/" in key else key
-
     try:
-        socket.inet_pton(socket.AF_INET, addr)
-        return key, False
-    except socket.error:
-        pass
-
-    try:
-        socket.inet_pton(socket.AF_INET6, addr)
-        return key, True
-    except socket.error:
+        if "/" in key:
+            network = ipaddress.ip_network(key, strict=False)
+            return str(network), isinstance(network, ipaddress.IPv6Network)
+        else:
+            addr = ipaddress.ip_address(key)
+            return str(addr), isinstance(addr, ipaddress.IPv6Address)
+    except ValueError:
         raise InvalidIPError(f"Invalid IP address or network: {key!r}")
 
 
