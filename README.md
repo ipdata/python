@@ -57,10 +57,10 @@ Install the latest version of the cli with `pip`.
 pip install ipdata
 ```
 
-or `easy_install`
+To use the [IPTrie](#iptrie) data structure, install with the `trie` extra (requires a C compiler):
 
 ```bash
-easy_install ipdata
+pip install ipdata[trie]
 ```
 
 ## Library Usage
@@ -580,6 +580,8 @@ IPTrie is a production-ready, type-safe trie for IP addresses and CIDR prefixes 
 
 ### Quick Start
 
+> **Note:** IPTrie requires the `trie` extra: `pip install ipdata[trie]`
+
 ```python
 from ipdata import IPTrie
 
@@ -740,6 +742,12 @@ A list of possible errors is available at [Status Codes](https://docs.ipdata.co/
 
 
 ## Tests
+
+Install test dependencies:
+
+```shell
+pip install ipdata[test,trie]
+```
 
 To run all tests
 

@@ -20,7 +20,10 @@ import socket
 from collections.abc import Iterator
 from typing import TypeVar, Generic
 
-from pytricia import PyTricia
+try:
+    from pytricia import PyTricia
+except ImportError:
+    PyTricia = None
 
 T = TypeVar("T")
 
@@ -94,6 +97,11 @@ class IPTrie(Generic[T]):
 
     def __init__(self) -> None:
         """Initialize an empty IPTrie."""
+        if PyTricia is None:
+            raise ImportError(
+                "pytricia is required for IPTrie but is not installed. "
+                "Install it with: pip install ipdata[trie]"
+            )
         self._ipv4: PyTricia = PyTricia(self.IPV4_BITS)
         self._ipv6: PyTricia = PyTricia(self.IPV6_BITS)
 

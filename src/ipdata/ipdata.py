@@ -100,13 +100,15 @@ class IPData(object):
 
     def __init__(
         self,
-        api_key=os.environ.get("IPDATA_API_KEY"),
+        api_key=None,
         endpoint="https://api.ipdata.co/",
         timeout=60,
         retry_limit=7,
         retry_backoff_factor=1,
         debug=False,
     ):
+        if api_key is None:
+            api_key = os.environ.get("IPDATA_API_KEY")
         if not api_key:
             raise IPDataException("API Key not set. Set an API key via the 'IPDATA_API_KEY' environment variable or see the docs for other ways to do so.")
         # Request settings
@@ -167,17 +169,18 @@ class IPData(object):
         if request_ip.is_private or request_ip.is_reserved or request_ip.is_multicast:
             raise ValueError(f"{ip} is a reserved IP Address")
 
-    def lookup(self, resource="", fields=[]):
+    def lookup(self, resource="", fields=[], select_field=None):
         """
         Makes a GET request to the IPData API for the specified 'resource' and the given 'fields'.
 
         :param resource: Either an IP address or an ASN prefixed by "AS" eg. "AS15169"
         :param fields: A collection of API fields to be returned
+        :param select_field: A single field name to return (convenience alternative to fields)
 
         :returns: An API response as a DotDict object to allow dot notation access of fields eg. data.ip, data.company.name, data.threat.blocklists[0].name etc
 
         :raises IPDataException: if the API call fails or if there is a failure in decoding the response.
-        :raises ValueError: if 'resource' is not a string
+        :raises ValueError: if 'resource' is not a string, or if both 'select_field' and 'fields' are provided
         """
         if type(resource) is not str:
             raise ValueError(f"{resource} must be of type 'str'")
@@ -188,6 +191,13 @@ class IPData(object):
 
         if resource and not resource.startswith("AS"):
             self._validate_ip_address(resource)
+
+        if select_field is not None:
+            if fields:
+                raise ValueError("'select_field' and 'fields' are mutually exclusive. Use one or the other.")
+            if not isinstance(select_field, str):
+                raise ValueError("'select_field' must be of type 'str'.")
+            fields = [select_field]
 
         self._validate_fields(fields)
         query_params = self._query_params | {"fields": ",".join(fields)}
