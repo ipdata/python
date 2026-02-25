@@ -7,7 +7,11 @@
         >>> ipdata.lookup() # or ipdata.lookup("8.8.8.8") 
 """
 from .ipdata import IPData
-from .iptrie import IPTrie
+
+try:
+    from .iptrie import IPTrie
+except ImportError:
+    IPTrie = None
 
 # Configuration
 api_key = None
@@ -15,8 +19,8 @@ endpoint = "https://api.ipdata.co/"
 default_client = None
 
 
-def lookup(resource="", fields=[]):
-    return _proxy("lookup", resource=resource, fields=fields)
+def lookup(resource="", fields=[], select_field=None):
+    return _proxy("lookup", resource=resource, fields=fields, select_field=select_field)
 
 
 def bulk(resources, fields=[]):

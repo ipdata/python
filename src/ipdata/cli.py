@@ -46,7 +46,6 @@ copying a result to the clipboard with '-c', pretty printing results in easy to 
     ╰───────────────╯ 
 """
 import csv
-import io
 import json
 import logging
 import os
@@ -66,9 +65,8 @@ from rich.panel import Panel
 from rich.progress import Progress
 from rich.tree import Tree
 
-from .lolcat import LolCat
 from .geofeeds import Geofeed, GeofeedValidationError
-from .ipdata import DotDict, IPData
+from .ipdata import IPData
 
 console = Console()
 
@@ -76,7 +74,7 @@ FORMAT = "%(message)s"
 logging.basicConfig(
     level="ERROR", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
 )
-log = logging.getLogger("rich")
+log = logging.getLogger(__name__)
 
 API_KEY_FILE = f"{Path.home()}/.ipdata"
 
@@ -95,19 +93,24 @@ def _lookup(ipdata, *args, **kwargs):
 
 def print_ascii_logo():
     """
-    Print cool ascii logo with lolcat.
+    Print cool ascii logo with rainbow colors.
     """
-    options = DotDict({"animate": False, "os": 6, "spread": 3.0, "freq": 0.1})
-    logo = """
- _           _       _        
-(_)_ __   __| | __ _| |_ __ _ 
+    from rich.text import Text
+
+    logo = r"""
+ _           _       _
+(_)_ __   __| | __ _| |_ __ _
 | | '_ \ / _` |/ _` | __/ _` |
 | | |_) | (_| | (_| | || (_| |
 |_| .__/ \__,_|\__,_|\__\__,_|
   |_|
-    """
-    lol = LolCat()
-    lol.cat(io.StringIO(logo), options)
+"""
+    rainbow = ["red", "orange1", "yellow", "green", "blue", "dark_violet"]
+    lines = logo.strip("\n").split("\n")
+    for i, line in enumerate(lines):
+        text = Text(line)
+        text.stylize(rainbow[i % len(rainbow)])
+        console.print(text)
 
 
 def pretty_print_data(data):
