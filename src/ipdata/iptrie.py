@@ -15,7 +15,7 @@ Example:
 
 from __future__ import annotations
 
-import ipaddress
+import socket
 from collections.abc import Iterator
 from typing import TypeVar, Generic
 
@@ -52,14 +52,40 @@ def _normalize_ip_key(key: str) -> tuple[str, bool]:
     if not key:
         raise InvalidIPError("Key cannot be empty")
 
+    if "/" in key:
+        addr_str, sep, prefix_str = key.rpartition("/")
+        try:
+            prefix_len = int(prefix_str)
+        except ValueError:
+            raise InvalidIPError(f"Invalid IP address or network: {key!r}")
+    else:
+        addr_str = key
+        prefix_len = -1
+
+    # Try IPv4
     try:
-        if "/" in key:
-            network = ipaddress.ip_network(key, strict=False)
-            return str(network), isinstance(network, ipaddress.IPv6Network)
-        else:
-            addr = ipaddress.ip_address(key)
-            return str(addr), isinstance(addr, ipaddress.IPv6Address)
-    except ValueError:
+        packed = socket.inet_pton(socket.AF_INET, addr_str)
+        if prefix_len >= 0:
+            if prefix_len > 32:
+                raise InvalidIPError(f"Invalid IP address or network: {key!r}")
+            mask = (0xFFFFFFFF << (32 - prefix_len)) & 0xFFFFFFFF
+            masked = (int.from_bytes(packed, "big") & mask).to_bytes(4, "big")
+            return f"{socket.inet_ntop(socket.AF_INET, masked)}/{prefix_len}", False
+        return addr_str, False
+    except OSError:
+        pass
+
+    # Try IPv6
+    try:
+        packed = socket.inet_pton(socket.AF_INET6, addr_str)
+        if prefix_len >= 0:
+            if prefix_len > 128:
+                raise InvalidIPError(f"Invalid IP address or network: {key!r}")
+            mask = ((1 << 128) - 1) << (128 - prefix_len)
+            masked = (int.from_bytes(packed, "big") & mask).to_bytes(16, "big")
+            return f"{socket.inet_ntop(socket.AF_INET6, masked)}/{prefix_len}", True
+        return socket.inet_ntop(socket.AF_INET6, packed), True
+    except OSError:
         raise InvalidIPError(f"Invalid IP address or network: {key!r}")
 
 
