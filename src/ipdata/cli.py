@@ -76,7 +76,7 @@ FORMAT = "%(message)s"
 logging.basicConfig(
     level="ERROR", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
 )
-log = logging.getLogger("rich")
+log = logging.getLogger(__name__)
 
 API_KEY_FILE = f"{Path.home()}/.ipdata"
 

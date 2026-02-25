@@ -9,15 +9,11 @@ import random
 from pathlib import Path
 
 import requests
-from rich.logging import RichHandler
 
 from .codes import COUNTRIES, REGION_CODES
 
-FORMAT = "%(message)s"
-logging.basicConfig(
-    level="ERROR", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
-)
-log = logging.getLogger("rich")
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 pwd = Path(__file__).parent.resolve()
 

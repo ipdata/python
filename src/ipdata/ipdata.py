@@ -26,12 +26,9 @@ import urllib3
 import functools
 
 from requests.adapters import HTTPAdapter, Retry
-from rich.logging import RichHandler
 
-FORMAT = "%(message)s"
-logging.basicConfig(
-    level="ERROR", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
-)
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class IPDataException(Exception):
@@ -68,7 +65,7 @@ class IPData(object):
     :param debug: A boolean used to set the log level. Set to True when debugging.
     """
 
-    log = logging.getLogger("rich")
+    log = logging.getLogger(__name__)
 
     valid_fields = {
         "ip",
@@ -121,6 +118,13 @@ class IPData(object):
         # Enable debugging
         if debug:
             self.log.setLevel(logging.DEBUG)
+            if not any(
+                not isinstance(h, logging.NullHandler) for h in self.log.handlers
+            ):
+                from rich.logging import RichHandler
+                handler = RichHandler()
+                handler.setFormatter(logging.Formatter("%(message)s", datefmt="[%X]"))
+                self.log.addHandler(handler)
 
         # Work around renamed argument in urllib3.
         if hasattr(urllib3.util.Retry.DEFAULT, "allowed_methods"):
