@@ -380,16 +380,10 @@ def batch(ctx, input, fields, output, format, exclude):
 
     :param input: A list of resources to lookup either IP addresses or ASNs. You could mix them however this could break output processing when writing to CSV
     :param fields: A list of valid fields to extract from the individual responses
+    :param exclude: A list of fields to leave out, every other field is extracted. Mutually exclusive with fields
     :param output: The path to write the results to
-    :param format: The format to write the results to. When using the CSV format it is required to provide fields.
+    :param format: The format to write the results to. When using the CSV format it is required to provide fields or exclude.
     """
-
-    if format == "CSV" and not fields:
-        print(
-            f'You need to specify a "--fields" argument with a list of fields to extract to get results in CSV. To get entire responses use JSON.',
-            file=stderr,
-        )
-        return
 
     # enforce mutual exclusivity of fields and exclude
     if exclude and fields:
@@ -397,9 +391,17 @@ def batch(ctx, input, fields, output, format, exclude):
             "'--fields / -f' and '--exclude / -e' are mutually exclusive."
         )
 
-    # if the user wants to exclude some fields, get all the fields in fields that are not in exclude
+    # if the user wants to exclude some fields, request all the other ones. They are sorted so that the
+    # CSV columns always come out in the same order.
     if exclude:
-        fields = set(ipdata.valid_fields).difference(set(exclude))
+        fields = sorted(IPData.valid_fields.difference(exclude))
+
+    if format == "CSV" and not fields:
+        print(
+            'You need to specify a "--fields" argument with a list of fields to extract (or "--exclude" with the fields to leave out) to get results in CSV. To get entire responses use JSON.',
+            file=stderr,
+        )
+        return
 
     # Prepare requests
     ipdata = IPData(ctx.obj["api-key"])
