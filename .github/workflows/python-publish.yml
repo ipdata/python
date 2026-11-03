@@ -11,7 +11,8 @@ on:
 jobs:
   test:
     name: Test (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    # ubuntu-latest now resolves to Ubuntu 26.04, for which actions/setup-python has no Python 3.9 builds
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -33,7 +34,8 @@ jobs:
   build-n-publish:
     name: Build and publish to PyPI
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    # the pinned Python 3.10.4 below has no build for Ubuntu 26.04 either
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.10.4
