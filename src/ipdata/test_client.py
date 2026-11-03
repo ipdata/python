@@ -12,7 +12,7 @@ import pytest
 
 import ipdata
 from ipdata import ipdata as ipdata_module
-from ipdata.ipdata import IPData, IPDataException
+from ipdata.ipdata import DotDict, IPData, IPDataException
 
 LOOKUP_RESPONSE = {
     "ip": "8.8.8.8",
@@ -137,6 +137,23 @@ def test_lookup_returns_error_payload_with_status():
 
     assert data.status == 401
     assert data.message.startswith("You have not provided")
+
+
+def test_dotdict_wraps_dict_list_items_and_leaves_the_others_alone():
+    data = DotDict(
+        {
+            "numbers": [1, 2, 3],
+            "mixed": [{"name": "a"}, "b", None],
+            "nested": {"entries": [{"name": "c"}]},
+        }
+    )
+
+    # dot access to a list of scalars used to raise TypeError
+    assert data.numbers == [1, 2, 3]
+    assert data.mixed[0].name == "a"
+    assert data.mixed[1:] == ["b", None]
+    assert data.nested.entries[0].name == "c"
+    assert data.missing is None
 
 
 def test_bulk_posts_json_with_the_client_timeout():

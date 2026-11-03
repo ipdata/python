@@ -60,7 +60,8 @@ class DotDict(dict):
         if type(val) is dict:
             return DotDict(val)
         elif type(val) is list:
-            return [DotDict(item) for item in val]
+            # wrap the dicts in a list of objects; a list of scalars is returned as it is
+            return [DotDict(item) if type(item) is dict else item for item in val]
         return val
 
     __setattr__ = dict.__setitem__
