@@ -166,6 +166,18 @@ def test_lookup_uses_the_default_timeout():
     assert recorder.requests[0].extensions["timeout"] == {"connect": 60, "read": 60, "write": 60, "pool": 60}
 
 
+def test_bulk_accepts_a_set_of_resources():
+    responses = [dict(LOOKUP_RESPONSE), dict(LOOKUP_RESPONSE, ip="1.1.1.1")]
+    client, recorder = make_client(httpx.Response(200, json=responses))
+
+    data = client.bulk({"8.8.8.8", "1.1.1.1"}, fields=["ip"])
+
+    # a set passes the validation but is not JSON serialisable, so it is sent as a list
+    assert sorted(json.loads(recorder.requests[0].content)) == ["1.1.1.1", "8.8.8.8"]
+    assert data.status == 200
+    assert [r.ip for r in data.responses] == ["8.8.8.8", "1.1.1.1"]
+
+
 def test_bulk_non_200_returns_payload_with_status():
     client, _ = make_client(httpx.Response(403, json={"message": "Forbidden"}))
 
