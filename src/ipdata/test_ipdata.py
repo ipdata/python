@@ -50,9 +50,8 @@ def test_bulk_v6(ips):
     # Check we got all results
     assert len(data.responses) == len(ips)
 
-    # Capitalize to handle 2620:11A:A000::' == '2620:11a:a000::'
-    for pair in zip(ips, [response.ip for response in data.responses]):
-        assert pair[0].upper() == pair[0].upper()
+    # Check we got a response for every requested IP. Capitalize to handle '2620:11A:A000::' == '2620:11a:a000::'
+    assert sorted(response.ip.upper() for response in data.responses) == sorted(ip.upper() for ip in ips)
 
 
 @given(st.lists(st.ip_addresses(network="8.8.8.0/24"), min_size=1, max_size=100))
@@ -65,5 +64,5 @@ def test_bulk_v4(ips):
     # Check we got all results
     assert len(data.responses) == len(ips)
 
-    for pair in zip(ips, [response.ip for response in data.responses]):
-        assert pair[0] == pair[0]
+    # Check we got a response for every requested IP
+    assert sorted(response.ip for response in data.responses) == sorted(ips)

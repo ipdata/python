@@ -12,7 +12,7 @@ import pytest
 
 import ipdata
 from ipdata import ipdata as ipdata_module
-from ipdata.ipdata import IPData, IPDataException
+from ipdata.ipdata import DotDict, IPData, IPDataException
 
 LOOKUP_RESPONSE = {
     "ip": "8.8.8.8",
@@ -139,6 +139,23 @@ def test_lookup_returns_error_payload_with_status():
     assert data.message.startswith("You have not provided")
 
 
+def test_dotdict_wraps_dict_list_items_and_leaves_the_others_alone():
+    data = DotDict(
+        {
+            "numbers": [1, 2, 3],
+            "mixed": [{"name": "a"}, "b", None],
+            "nested": {"entries": [{"name": "c"}]},
+        }
+    )
+
+    # dot access to a list of scalars used to raise TypeError
+    assert data.numbers == [1, 2, 3]
+    assert data.mixed[0].name == "a"
+    assert data.mixed[1:] == ["b", None]
+    assert data.nested.entries[0].name == "c"
+    assert data.missing is None
+
+
 def test_bulk_posts_json_with_the_client_timeout():
     responses = [dict(LOOKUP_RESPONSE), dict(LOOKUP_RESPONSE, ip="1.1.1.1")]
     client, recorder = make_client(httpx.Response(200, json=responses), timeout=7)
@@ -164,6 +181,18 @@ def test_lookup_uses_the_default_timeout():
     client.lookup("8.8.8.8")
 
     assert recorder.requests[0].extensions["timeout"] == {"connect": 60, "read": 60, "write": 60, "pool": 60}
+
+
+def test_bulk_accepts_a_set_of_resources():
+    responses = [dict(LOOKUP_RESPONSE), dict(LOOKUP_RESPONSE, ip="1.1.1.1")]
+    client, recorder = make_client(httpx.Response(200, json=responses))
+
+    data = client.bulk({"8.8.8.8", "1.1.1.1"}, fields=["ip"])
+
+    # a set passes the validation but is not JSON serialisable, so it is sent as a list
+    assert sorted(json.loads(recorder.requests[0].content)) == ["1.1.1.1", "8.8.8.8"]
+    assert data.status == 200
+    assert [r.ip for r in data.responses] == ["8.8.8.8", "1.1.1.1"]
 
 
 def test_bulk_non_200_returns_payload_with_status():

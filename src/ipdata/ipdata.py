@@ -60,7 +60,8 @@ class DotDict(dict):
         if type(val) is dict:
             return DotDict(val)
         elif type(val) is list:
-            return [DotDict(item) for item in val]
+            # wrap the dicts in a list of objects; a list of scalars is returned as it is
+            return [DotDict(item) if type(item) is dict else item for item in val]
         return val
 
     __setattr__ = dict.__setitem__
@@ -349,7 +350,7 @@ class IPData(object):
         """
         Lookup up to 100 resources in one request. Makes a POST request wth the resources as a JSON array and the specified fields.
 
-        :param resources: A list of resources. This can be a list of IP addresses or ASNs or a mix of both which is not recommended unless you handle it during parsing. Mixing resources might lead to weird behavior when writing results to CSV.
+        :param resources: A list or set of resources. This can be a list of IP addresses or ASNs or a mix of both which is not recommended unless you handle it during parsing. Mixing resources might lead to weird behavior when writing results to CSV.
         :param fields: A collection of API fields to be returned.
 
         :returns: A DotDict object with the data contained under the 'responses' key.
@@ -368,9 +369,9 @@ class IPData(object):
         self._validate_fields(fields)
         query_params = {"fields": ",".join(fields)}
 
-        # Make the requests
+        # Make the requests (as a list: a set passes the validation above but is not JSON serialisable)
         try:
-            response = self._request("POST", "/bulk", params=query_params, json=resources)
+            response = self._request("POST", "/bulk", params=query_params, json=list(resources))
         except Exception as e:
             raise IPDataException(f"Error when looking up {resources} - {e}")
 
