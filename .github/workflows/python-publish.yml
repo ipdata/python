@@ -6,11 +6,36 @@ on:
       - master
     tags:
       - '*'
+  pull_request:
 
 jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    # ubuntu-latest now resolves to Ubuntu 26.04, for which actions/setup-python has no Python 3.9 builds
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+    - name: Test with pytest (offline tests only, no API key needed)
+      run: |
+        python -m pytest -m "not api"
+
   build-n-publish:
     name: Build and publish to PyPI
-    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    # the pinned Python 3.10.4 below has no build for Ubuntu 26.04 either
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.10.4

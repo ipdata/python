@@ -21,6 +21,7 @@ Visit our [Documentation](https://docs.ipdata.co/) for more examples and tutoria
   - [Getting only one field](#getting-only-one-field)
   - [Getting a number of specific fields](#getting-a-number-of-specific-fields)
   - [Bulk Lookups](#bulk-lookups)
+  - [Connection reuse and HTTP/2](#connection-reuse-and-http2)
 - [Using the ipdata CLI](#using-the-ipdata-cli)
   - [Windows Installation Notes](#windows-installation-notes)
   - [Available commands](#available-commands)
@@ -367,6 +368,24 @@ NOTE: Alternatively it is much simpler to process bulk lookups using the `ipdata
 ```
 </details>
 
+### Connection reuse and HTTP/2
+
+An `IPData` client keeps a persistent HTTPS connection pool for as long as it lives. Create one client per process (or one per API key or endpoint), keep it, and reuse it for every lookup: each new client pays a fresh TLS handshake. Requests to api.ipdata.co are multiplexed over HTTP/2 when the platform negotiates it, and fall back to HTTP/1.1 keep-alive otherwise.
+
+The client is built on [httpx](https://www.python-httpx.org/) and is thread-safe: one instance can serve every thread of a process at once (the CLI's `batch` command shares a single client across its thread pool). Idle connections are kept open for 60 seconds and up to 20 connections are pooled. Call `close()` at shutdown, or use the client as a context manager, to release the pool. Pass `http2=False` to stay on HTTP/1.1 keep-alive, or `transport=` to inject your own `httpx.BaseTransport` (for example an `httpx.MockTransport` in tests).
+
+```python
+from ipdata import IPData
+
+with IPData("<YOUR API KEY>") as client:  # one client, many lookups
+    for ip in ["8.8.8.8", "1.1.1.1"]:
+        print(client.lookup(ip).country_name)
+```
+
+The module-level helpers `ipdata.lookup()` and `ipdata.bulk()` share one process-wide client, `ipdata.default_client`, which is created on first use and lives until the process exits. Connections must not be shared across `os.fork()` or `multiprocessing` boundaries: create your `IPData` instance (or make the first module-level call) in the child process, after forking.
+
+Failed requests are retried up to `retry_limit` times (default 7). GET and POST requests that fail with a transport error (connection reset, timeout) or with HTTP 500, 502, 503 or 504 are retried with exponential backoff: 0.5, 1, 2, 4, 8, 16 and 32 seconds for the default `retry_backoff_factor=1`. A 429 response is retried only when it carries a `Retry-After` header (waiting at most 60 seconds); without one it is returned immediately, so an exhausted quota fails fast. The `HTTPS_PROXY` and `NO_PROXY` environment variables are honoured; a custom CA bundle is read from `SSL_CERT_FILE` (httpx does not read `REQUESTS_CA_BUNDLE`).
+
 ## Using the ipdata CLI
 
 
@@ -545,6 +564,18 @@ The `--fields` option is required to use CSV output.
 ### Available Fields
 
 A list of all the fields returned by the API is maintained at [Response Fields](https://docs.ipdata.co/api-reference/response-fields)
+
+The following fields were added to the API in November 2026. The library passes them through unchanged, and both top-level flags are accepted by the `fields` and `select_field` parameters of `lookup()` and `bulk()` and by the CLI's `-f` and `-e` options.
+
+| Field | Description |
+|-------|-------------|
+| `is_satellite` | `true` when the address belongs to a satellite internet provider (for example Starlink). Present only when true, omitted otherwise. |
+| `is_anycast` | `true` when the address is an anycast address announced from several locations at once (for example `8.8.8.8`). Present only when true, omitted otherwise. |
+| `threat.blocklists[].first_seen` | The UTC calendar date (a `YYYY-MM-DD` string) on which that blocklist first listed the address. Optional: some feeds, for example ipdata's own vpn feed, do not provide it. |
+| `threat.blocklists[].last_seen` | The UTC calendar date (a `YYYY-MM-DD` string) on which that blocklist last listed the address. Optional, as above. |
+| `threat.blocklists[].days_seen` | The number of days the address has been listed by that blocklist (an integer). Optional, as above. |
+
+`is_satellite` and `is_anycast` are included in a response only when they are `true`. When absent they are missing from the dictionary and read as `None` through dot notation (`response.is_satellite`), so treat anything falsy as `false`. The dates are kept as strings and are not parsed. Fields the library does not know about yet are passed through as well.
 
 ## Geofeed tools
 
@@ -753,4 +784,10 @@ To run all tests
 
 ```shell
 pytest
+```
+
+The tests marked `api` call the live API and need an `IPDATA_API_KEY` environment variable (or a `src/ipdata/.env` file). To run only the offline tests, as CI does for pull requests:
+
+```shell
+pytest -m "not api"
 ```
