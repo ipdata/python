@@ -1,4 +1,4 @@
-requests
+httpx[http2]>=0.28,<1
 rich
 click
 click_default_group

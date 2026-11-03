@@ -18,17 +18,31 @@ Example
 :class:`~.IPData` is the primary class for making API requests.
 """
 
-import os
+import email.utils
+import importlib.metadata
 import ipaddress
-import requests
 import logging
-import urllib3
-import functools
+import os
+import time
+from datetime import datetime, timezone
 
-from requests.adapters import HTTPAdapter, Retry
+import httpx
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
+try:
+    __version__ = importlib.metadata.version("ipdata")
+except importlib.metadata.PackageNotFoundError:  # running from a source checkout
+    __version__ = "unknown"
+
+# HTTP statuses that are retried, for GET and POST requests alike
+RETRY_STATUSES = frozenset({500, 502, 503, 504})
+# Longest pause honoured from a 429 Retry-After header, in seconds
+MAX_RETRY_AFTER = 60.0
+
+# Seam for the tests, which replace it to check the retry schedule without sleeping
+_sleep = time.sleep
 
 
 class IPDataException(Exception):
@@ -57,12 +71,26 @@ class IPData(object):
     """
     Instances of IPData are used to make API requests. To make requests to the EU endpoint, set "endpoint" to "https://eu-api.ipdata.co".
 
+    Every instance owns one HTTPS connection pool that is kept alive and reused for all of its requests
+    (multiplexed over HTTP/2 when the server negotiates it, HTTP/1.1 keep-alive otherwise), so create one
+    client per process (or per API key or endpoint), reuse it for every lookup and call :meth:`close` (or use
+    the instance as a context manager) when you are done with it. Instances are thread-safe. A client must
+    be created after forking: never share one across os.fork() or multiprocessing boundaries.
+
+    Failed requests are retried up to 'retry_limit' times. GET and POST requests that fail with a transport
+    error (connection reset, timeout, ...) or with HTTP 500, 502, 503 or 504 are retried after sleeping
+    retry_backoff_factor * 2 ** (attempt - 2) seconds, i.e. 0.5, 1, 2, 4, 8, 16 and 32 seconds with the
+    defaults. HTTP 429 is retried only when the response carries a Retry-After header (sleeping at most 60
+    seconds); without one the response is returned immediately so that an exhausted quota fails fast.
+
     :param api_key: A valid IPData API key
     :param endpoint: The API endpoint to send requests to
-    :param timeout: The default requests timeout
+    :param timeout: The default requests timeout in seconds, applied to every request including bulk lookups
     :param retry_limit: The maximum number of retries in case of failure
     :param retry_backoff_factor: The number of seconds to sleep in between retries. With a 1 second backoff calls with be retried up to 7 times at the following intervals: 0.5, 1, 2, 4, 8, 16, 32
     :param debug: A boolean used to set the log level. Set to True when debugging.
+    :param http2: Negotiate HTTP/2 with automatic fallback to HTTP/1.1. Set to False to use HTTP/1.1 keep-alive only.
+    :param transport: An optional httpx.BaseTransport used instead of the default HTTPS transport, for example an httpx.MockTransport in tests
     """
 
     log = logging.getLogger(__name__)
@@ -103,6 +131,8 @@ class IPData(object):
         retry_limit=7,
         retry_backoff_factor=1,
         debug=False,
+        http2=True,
+        transport=None,
     ):
         if api_key is None:
             api_key = os.environ.get("IPDATA_API_KEY")
@@ -112,7 +142,12 @@ class IPData(object):
         self.api_key = api_key
         self.endpoint = endpoint.rstrip("/")  # remove trailing /
         self._timeout = timeout
-        self._headers = {"user-agent": "ipdata-python"}  # set default UserAgent
+        self._retry_limit = retry_limit
+        self._retry_backoff_factor = retry_backoff_factor
+        self._headers = {
+            "user-agent": f"ipdata-python/{__version__}",  # set default UserAgent
+            "accept": "application/json",
+        }
         self._query_params = {"api-key": self.api_key}
 
         # Enable debugging
@@ -126,24 +161,37 @@ class IPData(object):
                 handler.setFormatter(logging.Formatter("%(message)s", datefmt="[%X]"))
                 self.log.addHandler(handler)
 
-        # Work around renamed argument in urllib3.
-        if hasattr(urllib3.util.Retry.DEFAULT, "allowed_methods"):
-            methods_arg = "allowed_methods"
-        else:
-            methods_arg = "method_whitelist"
+        # One connection pool per client instance. Connections are kept alive for 60 seconds and reused
+        # across requests (multiplexed over HTTP/2 when the server negotiates it, HTTP/1.1 keep-alive
+        # otherwise) instead of paying a TCP + TLS handshake per call. When no transport is injected
+        # httpx builds its default one, which honours HTTPS_PROXY / NO_PROXY and the SSL_CERT_* variables
+        # like requests did; with an injected transport httpx uses it as-is and ignores http2 and limits.
+        self._client = httpx.Client(
+            base_url=self.endpoint,
+            http2=http2,
+            timeout=httpx.Timeout(timeout),
+            headers=self._headers,
+            params=self._query_params,
+            limits=httpx.Limits(
+                max_connections=20, max_keepalive_connections=20, keepalive_expiry=60.0
+            ),
+            transport=transport,
+        )
 
-        # Retry settings
-        retry_args = {
-            "total": retry_limit,
-            "backoff_factor": retry_backoff_factor,
-            "status_forcelist": [429, 500, 502, 503, 504],
-            methods_arg: {"POST"},
-        }
+    def close(self):
+        """
+        Closes the connection pool. The instance can not be used afterwards. Call this at shutdown, or use the instance as a context manager:
 
-        adapter = HTTPAdapter(max_retries=urllib3.Retry(**retry_args))
+            >>> with IPData("YOUR API KEY") as ipdata:
+            ...     ipdata.lookup("8.8.8.8")
+        """
+        self._client.close()
 
-        self._session = requests.Session()
-        self._session.mount("http", adapter)
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
 
     def _validate_fields(self, fields):
         """
@@ -172,6 +220,74 @@ class IPData(object):
         request_ip = ipaddress.ip_address(ip)
         if request_ip.is_private or request_ip.is_reserved or request_ip.is_multicast:
             raise ValueError(f"{ip} is a reserved IP Address")
+
+    def _backoff(self, attempt):
+        """
+        Seconds to sleep before retry number 'attempt' (1-based): 0.5, 1, 2, 4, 8, 16, 32 with the default backoff factor.
+        """
+        return self._retry_backoff_factor * 2 ** (attempt - 2)
+
+    @staticmethod
+    def _retry_after(value):
+        """
+        Parses a Retry-After header, given either as delay-seconds or as an HTTP-date.
+
+        :returns: The number of seconds to wait, or None if the value can not be parsed
+        """
+        value = value.strip()
+        if value.isdigit():
+            return float(value)
+        try:
+            when = email.utils.parsedate_to_datetime(value)
+        except (TypeError, ValueError):
+            return None
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        return max((when - datetime.now(timezone.utc)).total_seconds(), 0.0)
+
+    def _request(self, method, path, **kwargs):
+        """
+        Sends a request over the shared connection pool, retrying it as described in the class docstring.
+
+        :returns: The last httpx.Response received
+        :raises httpx.TransportError: if the request still fails to get a response once the retries are exhausted
+        """
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                response = self._client.request(method, path, **kwargs)
+            except httpx.UnsupportedProtocol:
+                raise  # a configuration error that no retry can fix
+            except httpx.TransportError as e:
+                if attempt > self._retry_limit:
+                    raise
+                delay = self._backoff(attempt)
+                reason = f"{type(e).__name__}: {e}"
+            else:
+                status_code = response.status_code
+                if attempt > self._retry_limit:
+                    return response
+                if status_code in RETRY_STATUSES:
+                    delay = self._backoff(attempt)
+                elif status_code == 429 and "retry-after" in response.headers:
+                    delay = self._retry_after(response.headers["retry-after"])
+                    if delay is None:
+                        delay = self._backoff(attempt)
+                    delay = min(delay, MAX_RETRY_AFTER)
+                else:
+                    return response
+                reason = f"HTTP {status_code}"
+            self.log.debug(
+                "Retrying %s %s in %.1fs (retry %d of %d) after %s",
+                method,
+                path,
+                delay,
+                attempt,
+                self._retry_limit,
+                reason,
+            )
+            _sleep(delay)
 
     def lookup(self, resource="", fields=[], select_field=None):
         """
@@ -204,16 +320,11 @@ class IPData(object):
             fields = [select_field]
 
         self._validate_fields(fields)
-        query_params = self._query_params | {"fields": ",".join(fields)}
+        query_params = {"fields": ",".join(fields)}
 
         # Make the request
         try:
-            response = self._session.get(
-                f"{self.endpoint}/{resource}",
-                headers=self._headers,
-                params=query_params,
-                timeout=self._timeout,
-            )
+            response = self._request("GET", f"/{resource}", params=query_params)
         except Exception as e:
             raise IPDataException(e)
 
@@ -253,16 +364,11 @@ class IPData(object):
             raise ValueError("Bulk lookups must contain at least 1 resource.")
 
         self._validate_fields(fields)
-        query_params = self._query_params | {"fields": ",".join(fields)}
+        query_params = {"fields": ",".join(fields)}
 
         # Make the requests
         try:
-            response = self._session.post(
-                f"{self.endpoint}/bulk",
-                headers=self._headers,
-                params=query_params,
-                json=resources,
-            )
+            response = self._request("POST", "/bulk", params=query_params, json=resources)
         except Exception as e:
             raise IPDataException(f"Error when looking up {resources} - {e}")
 

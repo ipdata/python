@@ -8,7 +8,7 @@ import logging
 import random
 from pathlib import Path
 
-import requests
+import httpx
 
 from .codes import COUNTRIES, REGION_CODES
 
@@ -49,7 +49,7 @@ class Geofeed(object):
         cache_path = f"{self.dir}/{random_name}.csv"
 
         try:
-            response = requests.get(self.source, timeout=60)
+            response = httpx.get(self.source, timeout=60, follow_redirects=True)
             text = response.text
             with open(cache_path, "w") as f:
                 f.write(
