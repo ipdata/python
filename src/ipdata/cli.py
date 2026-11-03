@@ -429,6 +429,7 @@ def batch(ctx, input, fields, output, format, exclude):
                 f"threat_{sub_field}"
                 for sub_field in [
                     "is_tor",
+                    "is_vpn",
                     "is_icloud_relay",
                     "is_proxy",
                     "is_datacenter",
@@ -438,6 +439,7 @@ def batch(ctx, input, fields, output, format, exclude):
                     "is_threat",
                     "is_bogon",
                     "blocklists",
+                    "scores",
                 ]
             ]
             continue

@@ -125,3 +125,19 @@ def test_batch_csv_needs_fields_or_exclude(cli_requests, tmp_path):
     assert result.exit_code == 0
     assert cli_requests == []
     assert not output.exists()
+
+
+def test_batch_csv_threat_columns_include_is_vpn_and_scores(cli_requests, tmp_path):
+    result, output = run_batch(tmp_path, "--format", "CSV", "-f", "ip", "-f", "threat", resources=("8.8.8.8",))
+
+    assert result.exit_code == 0, result.output
+    reader = csv.DictReader(output.read_text().splitlines())
+    rows = list(reader)
+    assert reader.fieldnames == ["ip"] + [f"threat_{member}" for member in THREAT]
+    assert rows[0]["ip"] == "8.8.8.8"
+    assert rows[0]["threat_is_vpn"] == "True"
+    assert rows[0]["threat_is_tor"] == "False"
+    # nested values are written as their Python representation, the blocklist dates included
+    assert rows[0]["threat_blocklists"] == str(THREAT["blocklists"])
+    assert "'first_seen': '2026-10-31'" in rows[0]["threat_blocklists"]
+    assert rows[0]["threat_scores"] == str(THREAT["scores"])
