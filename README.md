@@ -49,6 +49,7 @@ Visit our [Documentation](https://docs.ipdata.co/) for more examples and tutoria
   - [Performance](#performance)
 - [Errors](#errors)
 - [Tests](#tests)
+- [Releasing](#releasing)
 
 ## Installation
 
@@ -791,3 +792,12 @@ The tests marked `api` call the live API and need an `IPDATA_API_KEY` environmen
 ```shell
 pytest -m "not api"
 ```
+
+## Releasing
+
+Releases are cut by CI from the version in `setup.cfg`:
+
+1. Bump `version` in `setup.cfg` in a pull request and merge it into `master`.
+2. CI runs the tests, tags the merge commit `x.y.z` (the version, with no `v` prefix), creates the GitHub release with generated notes and publishes the package to [PyPI](https://pypi.org/project/ipdata/).
+
+A merge whose version is already tagged publishes nothing. Pushing a tag by hand still builds and publishes that tag as before.
