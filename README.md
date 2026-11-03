@@ -544,10 +544,10 @@ ipdata batch my_ip_backlog.csv --output geolocation_results.json --format JSON
 ### Batch lookup with output to CSV file
 
 ```
-ipdata batch my_ip_backlog.csv --output results.csv --output-format CSV --fields ip --fields country_code
+ipdata batch my_ip_backlog.csv --output results.csv --format CSV --fields ip --fields country_code
 ```
 
-The `--fields` option is required to use CSV output.
+Either `--fields` or `--exclude` is required to use CSV output.
 
 #### Example Results
 
