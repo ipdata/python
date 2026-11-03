@@ -31,9 +31,62 @@ jobs:
       run: |
         python -m pytest -m "not api"
 
+  release:
+    name: Tag and create the GitHub release
+    # Only pushes to the default branch can release; a version that is already tagged is left alone.
+    if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    needs: test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      created: ${{ steps.release.outputs.created }}
+    steps:
+    - uses: actions/checkout@v7
+    - name: Read the version from setup.cfg
+      id: version
+      run: |
+        tag="$(sed -nE 's/^version *= *([^[:space:]]+).*/\1/p' setup.cfg | head -1)"
+        if [ -z "$tag" ]; then
+          echo "::error file=setup.cfg::no version found in setup.cfg"
+          exit 1
+        fi
+        echo "version $tag"
+        echo "tag=$tag" >> "$GITHUB_OUTPUT"
+    - name: Create the tag and the release unless the tag exists
+      id: release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TAG: ${{ steps.version.outputs.tag }}
+      run: |
+        status=0
+        git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null || status=$?
+        case "$status" in
+          0)
+            echo "tag $TAG already exists, nothing to release"
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            ;;
+          2)
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --generate-notes
+            echo "created=true" >> "$GITHUB_OUTPUT"
+            ;;
+          *)
+            echo "::error::git ls-remote failed with exit code $status"
+            exit "$status"
+            ;;
+        esac
+
   build-n-publish:
     name: Build and publish to PyPI
-    if: github.event_name == 'push'
+    needs: [test, release]
+    # Runs for every push as before; the release job is skipped for tag pushes, hence the explicit result checks.
+    if: >-
+      !cancelled() && github.event_name == 'push' && needs.test.result == 'success'
+      && (needs.release.result == 'success' || needs.release.result == 'skipped')
     # kept on the same image as the test job
     runs-on: ubuntu-24.04
     steps:
@@ -60,7 +113,8 @@ jobs:
         build
         .
     - name: Publish to PyPI
-      if: startsWith(github.ref, 'refs/tags')
+      # a tag created by the release job in this run, or a tag pushed by hand
+      if: needs.release.outputs.created == 'true' || startsWith(github.ref, 'refs/tags')
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         user: __token__
