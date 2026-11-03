@@ -98,6 +98,8 @@ class IPData(object):
     valid_fields = {
         "ip",
         "is_eu",
+        "is_satellite",
+        "is_anycast",
         "city",
         "region",
         "region_code",

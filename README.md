@@ -565,6 +565,18 @@ The `--fields` option is required to use CSV output.
 
 A list of all the fields returned by the API is maintained at [Response Fields](https://docs.ipdata.co/api-reference/response-fields)
 
+The following fields were added to the API in November 2026. The library passes them through unchanged, and both top-level flags are accepted by the `fields` and `select_field` parameters of `lookup()` and `bulk()` and by the CLI's `-f` and `-e` options.
+
+| Field | Description |
+|-------|-------------|
+| `is_satellite` | `true` when the address belongs to a satellite internet provider (for example Starlink). Present only when true, omitted otherwise. |
+| `is_anycast` | `true` when the address is an anycast address announced from several locations at once (for example `8.8.8.8`). Present only when true, omitted otherwise. |
+| `threat.blocklists[].first_seen` | The UTC calendar date (a `YYYY-MM-DD` string) on which that blocklist first listed the address. Optional: some feeds, for example ipdata's own vpn feed, do not provide it. |
+| `threat.blocklists[].last_seen` | The UTC calendar date (a `YYYY-MM-DD` string) on which that blocklist last listed the address. Optional, as above. |
+| `threat.blocklists[].days_seen` | The number of days the address has been listed by that blocklist (an integer). Optional, as above. |
+
+`is_satellite` and `is_anycast` are included in a response only when they are `true`. When absent they are missing from the dictionary and read as `None` through dot notation (`response.is_satellite`), so treat anything falsy as `false`. The dates are kept as strings and are not parsed. Fields the library does not know about yet are passed through as well.
+
 ## Geofeed tools
 
 Geofeed publishers can use the `ipdata validate` command to validate their geofeeds before submission to ipdata. This will catch most but not all issues that might cause processing your geofeed to fail.
